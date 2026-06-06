@@ -1,5 +1,6 @@
 <script setup>
   import { ref, reactive } from 'vue'
+  import { isValidTableauStack, canMoveToTableau } from './utils/gameRules'
   import GameBoard from './components/GameBoard.vue'
 
   const selectedSource = ref(null)
@@ -44,29 +45,6 @@
     console.log('點到 tableau 牌:', selectedSource.value)
   }
 
-  function isValidTableauStack(cards) {
-    if (!cards.length) return false
-    const isDecreasingByOne = cards.every((card, index , arr) => {
-      if (index === 0) return true
-      const previousCard = arr[index - 1]
-      return previousCard.point - card.point === 1
-    })
-    const isDifferentColor = cards.every((card, index, arr) => {
-      if (index === 0) return true
-      const previousCard = arr[index - 1]
-      return getCardColor(previousCard) !== getCardColor(card)
-    })
-    return isDecreasingByOne && isDifferentColor
-  }
-
-  function getCardColor(card) {
-    const blackSuits = [1, 4]
-    const redSuits = [2, 3]
-    if (blackSuits.includes(card.suit)) return 'black'
-    if (redSuits.includes(card.suit)) return 'red'
-    return null
-  }
-  
   function moveTableauStackToTableau(source, targetColumnIndex) {
     if (!source) return
     if (source.columnIndex === targetColumnIndex) return
@@ -78,15 +56,6 @@
 
     sourceColumn.splice(source.cardIndex)
     targetColumn.push(...movingCards)
-  }
-
-  function canMoveToTableau(card, targetColumn) {
-    if (!card) return
-    const targetCard = targetColumn[targetColumn.length - 1]
-    if (!targetCard) return true
-    const isDecreasingByOne = targetCard.point - card.point === 1
-    const isDifferentColor = getCardColor(card) !== getCardColor(targetCard)
-    return isDecreasingByOne && isDifferentColor
   }
 
   function moveFreeCellToTableau(cellIndex, targetColumnIndex) {
