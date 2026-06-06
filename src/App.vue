@@ -10,20 +10,34 @@
       point: (i % 13) + 1,
     })
   }
-  const columns = [[], [], [], [], [], [], [], []]
+  const gameState = {
+    freeCells: [null, null, null, null],
+    foundations: [[], [], [], []],
+    tableau: [[], [], [], [], [], [], [], []]
+  }
   function handleClick({ card, columnIndex, cardIndex }) {
     console.log('點到這張牌:', card, columnIndex, cardIndex)
   }
 
+  function handleFreeCellClick({ card, cellIndex }) {
+    console.log('點到 free cell:', card, cellIndex)
+  }
+
+  function handleFoundationClick({ foundation, foundationIndex }) {
+    console.log('點到 foundation', foundation, foundationIndex)
+  }
+
   cards.forEach((card, index) => {
-    columns[index % 8].push(card)
+    gameState.tableau[index % 8].push(card)
   })
 </script>
 
 <template>
   <GameBoard
-    :columns="columns"
+    :game-state="gameState"
     @card-click="handleClick"
+    @free-cell-click="handleFreeCellClick"
+    @foundation-click="handleFoundationClick"
      />
 </template>
 

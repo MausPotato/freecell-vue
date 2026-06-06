@@ -2,15 +2,28 @@
 import Card from './Card.vue'
 
 const props = defineProps({
-  columns: {
-    type: Array,
-    required: true
+  gameState: {
+    type: Object,
+    requird: true
   }
 })
 
-const emit = defineEmits(['card-click'])
+const emit = defineEmits(['card-click', 'free-cell-click', 'foundation-click'])
 function handleCardClick(card, columnIndex, cardIndex) {
   emit('card-click', { card, columnIndex, cardIndex })
+}
+
+function handleFreeCellClick(card, cellIndex) {
+  console.log('GameBoard free cell:', card, cellIndex)
+  emit('free-cell-click', {
+    card, cellIndex
+  })
+}
+
+function handleFoundationClick(foundation, foundationIndex) {
+  emit('foundation-click', {
+    foundation, foundationIndex
+  })
 }
 
 </script>
@@ -20,23 +33,34 @@ function handleCardClick(card, columnIndex, cardIndex) {
       <div class="free-cells">
         <div 
           class="cell-slot"
-          v-for="index in 4"
-          :key="`free-cell-${index}`"
-          ></div>
+          v-for="(cell, cellIndex) in gameState.freeCells"
+          :key="`free-cell-${cellIndex}`",
+          @click="handleFreeCellClick(cell, cellIndex)" 
+          >
+          <Card
+            v-if="cell"
+            :card="cell"
+            />
+        </div>
       </div>
-      <div class="foundtions">
+      <div class="foundations">
         <div 
           class="cell-slot"
-          v-for="index in 4"
-          :key="`foundtion-${index}`"
+          v-for="(foundation, foundationIndex) in gameState.foundations"
+          :key="`foundation-${foundationIndex}`",
+          @click="handleFoundationClick(foundation, foundationIndex)"
           >
+          <Card 
+            v-if="foundation.lenght"
+            :card="foundation[foundation.lenght - 1]"
+            />
         </div>
       </div>
     </div>
     <div class="tableau">
       <div 
         class="column" 
-        v-for="(column, columnIndex) in columns" 
+        v-for="(column, columnIndex) in gameState.tableau" 
         :key="columnIndex"
       >
         <Card 
@@ -66,7 +90,7 @@ function handleCardClick(card, columnIndex, cardIndex) {
   justify-content: space-between;
 }
 
-.free-cells, .foundtions {
+.free-cells, .foundations {
   display: flex;
   gap: 1vw;
 }
