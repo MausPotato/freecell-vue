@@ -1,6 +1,6 @@
 <script setup>
   import { ref, reactive } from 'vue'
-  import { isValidTableauStack, canMoveToTableau } from './utils/gameRules'
+  import { isValidTableauStack, canMoveToTableau, canMoveToFoundation } from './utils/gameRules'
   import GameBoard from './components/GameBoard.vue'
 
   const selectedSource = ref(null)
@@ -104,12 +104,42 @@
   }
 
 
-  function handleFoundationClick({ foundation, foundationIndex }) {
-    console.log('點到 foundation', {
-      foundation,
-      foundationIndex,
-      selectedSource: selectedSource.value
-    })
+  function handleFoundationClick({ foundationIndex }) {
+    if (!selectedSource.value) return
+    const source = selectedSource.value
+    const foundationPile = gameState.foundations[foundationIndex]
+    let movingCard = null
+    let removeFromSource = null
+    if (source.area === 'tableau') {
+      const sourceColumn = gameState.tableau[source.columnIndex]
+      const isLastCard = source.cardIndex === sourceColumn.length - 1
+      if (!isLastCard) {
+        selectedSource.value = null
+        return
+      }
+      movingCard = sourceColumn[source.cardIndex]
+      removeFromSource = () => {
+        sourceColumn.pop()
+      }
+    }
+    if (source.area === 'freeCell') {
+      movingCard = gameState.freeCells[source.cellIndex]
+      removeFromSource = () => {
+        gameState.freeCells[source.cellIndex] = null
+      }
+    }
+    if (!movingCard || !removeFromSource) {
+        selectedSource.value = null
+        return
+    }
+    if (!canMoveToFoundation(movingCard, foundationPile)) {
+      console.log('不能移到 foundation')
+      selectedSource.value = null
+      return
+    }
+    removeFromSource()
+    foundationPile.push(movingCard)
+    selectedSource.value = null
   }
 
 </script>

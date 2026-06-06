@@ -29,3 +29,14 @@ export function canMoveToTableau(card, targetColumn) {
   const isDifferentColor = getCardColor(card) !== getCardColor(targetCard)
   return isDecreasingByOne && isDifferentColor
 }
+
+export function canMoveToFoundation(card, foundationPile) {
+  if (!card) return false
+  const topCard = foundationPile[foundationPile.length - 1]
+  if (!topCard) {
+    return card.point === 1
+  }
+  const isSameSuit = card.suit === topCard.suit
+  const isIncreasingByOne = card.point - topCard.point === 1
+  return isSameSuit && isIncreasingByOne
+}

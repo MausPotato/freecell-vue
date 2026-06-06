@@ -4,7 +4,7 @@ import Card from './Card.vue'
 const props = defineProps({
   gameState: {
     type: Object,
-    requird: true
+    required: true
   }
 })
 
@@ -34,7 +34,7 @@ function handleFoundationClick(foundation, foundationIndex) {
         <div 
           class="cell-slot"
           v-for="(cell, cellIndex) in gameState.freeCells"
-          :key="`free-cell-${cellIndex}`",
+          :key="`free-cell-${cellIndex}`"
           @click="handleFreeCellClick(cell, cellIndex)" 
           >
           <Card
@@ -46,13 +46,13 @@ function handleFoundationClick(foundation, foundationIndex) {
       <div class="foundations">
         <div 
           class="cell-slot"
-          v-for="(foundation, foundationIndex) in gameState.foundations"
+          v-for="(foundationPile, foundationIndex) in gameState.foundations"
           :key="`foundation-${foundationIndex}`",
-          @click="handleFoundationClick(foundation, foundationIndex)"
+          @click="handleFoundationClick(foundationPile, foundationIndex)"
           >
           <Card 
-            v-if="foundation.lenght"
-            :card="foundation[foundation.lenght - 1]"
+            v-if="foundationPile.length"
+            :card="foundationPile[foundationPile.length - 1]"
             />
         </div>
       </div>
