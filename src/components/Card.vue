@@ -1,7 +1,9 @@
 <script setup>
   const props = defineProps({
-    card: Object,
-    required: true
+    card: {
+      type: Object,
+      required: true
+    }
   })
   const emit = defineEmits(['card-click'])
   function handleClick() {
@@ -15,7 +17,7 @@
     @click="handleClick"
   ></div>
 </template>
-<style>
+<style scoped>
   .card {
     width: var(--card-width, 8vw);
     aspect-ratio: 16 / 21;

@@ -1,5 +1,6 @@
 <script setup>
-  import Card from './components/Card.vue'
+  import GameBoard from './components/GameBoard.vue'
+  // import Card from './components/Card.vue'
 
   const cards = []
   for (let i = 0; i < 52; i++) {
@@ -9,17 +10,26 @@
       point: (i % 13) + 1,
     })
   }
-  function handleClick(card) {
-    console.log('點到這張牌:', card)
+  const columns = [[], [], [], [], [], [], [], []]
+  function handleClick({ card, columnIndex, cardIndex }) {
+    console.log('點到這張牌:', card, columnIndex, cardIndex)
   }
+
+  cards.forEach((card, index) => {
+    colums[index % 8].push(card)
+  })
 </script>
 
 <template>
-  <Card 
-    v-for="card in cards" 
-    :key="card.id" 
-    :card="card" 
-    @card-click="handleClick" />
+  <GameBoard
+    :columns="colums"
+    @card-click="handleClick"
+     />
 </template>
 
-<style scoped></style>
+<style scoped>
+  #app {
+    padding: 0;
+    margin: 0;
+  }
+</style>
