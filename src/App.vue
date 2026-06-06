@@ -16,20 +16,16 @@
   }
 
   cards.forEach((card, index) => {
-    colums[index % 8].push(card)
+    columns[index % 8].push(card)
   })
 </script>
 
 <template>
   <GameBoard
-    :columns="colums"
+    :columns="columns"
     @card-click="handleClick"
      />
 </template>
 
 <style scoped>
-  #app {
-    padding: 0;
-    margin: 0;
-  }
 </style>
