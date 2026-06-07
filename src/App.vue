@@ -518,6 +518,7 @@
     history.value = []
     resetTimer()
     showNewGameConfirm.value = false
+    showWinDialog.value = false
     wasTimerRunningBeforeDialog.value = false
   }
 

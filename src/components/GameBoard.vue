@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Card from './Card.vue'
+import { isValidTableauStack } from '../utils/gameRules'
 
 const props = defineProps({
   gameState: {
@@ -91,9 +92,13 @@ function handleFoundationClick(foundation, foundationIndex) {
 
 function handleDragStart(event, source) {
   if (event.button !== 0) return
-  event.preventDefault()
   const target = event.currentTarget
   const rect = target.getBoundingClientRect()
+  const cards = getDragCards(source)
+
+  if (!canDragSource(source, cards)) return
+
+  event.preventDefault()
 
   if (isDoubleTap(source)) {
     suppressClick.value = true
@@ -110,7 +115,6 @@ function handleDragStart(event, source) {
     time: performance.now()
   }
 
-  const cards = getDragCards(source)
   const cardStep = getPreviewCardStep(target, source)
 
   target.setPointerCapture?.(event.pointerId)
@@ -253,6 +257,13 @@ function getDragCards(source) {
   return source.card ? [source.card] : []
 }
 
+function canDragSource(source, cards = getDragCards(source)) {
+  if (!cards.length) return false
+  if (source.area !== 'tableau') return true
+
+  return isValidTableauStack(cards)
+}
+
 function animateAutoMove(source, to, sourceRect, commit) {
   const cards = getDragCards(source)
   const targetRect = getDropTargetRect(to, cards.length)
@@ -377,8 +388,8 @@ function autoMovePreviewCardStyle(index) {
   if (!autoMovePreview.value) return {}
 
   return {
-    left: `${autoMovePreview.value.x}px`,
-    top: `${autoMovePreview.value.y + autoMovePreview.value.cardStep * index}px`,
+    '--preview-x': `${autoMovePreview.value.x}px`,
+    '--preview-y': `${autoMovePreview.value.y + autoMovePreview.value.cardStep * index}px`,
     '--drag-card-x': `${index * 5}px`,
     '--drag-card-rotate': `${Math.min(index * 1.4, 5)}deg`
   }
@@ -549,8 +560,8 @@ function getCardRect(cardId) {
 
 function undoPreviewCardStyle(card) {
   return {
-    left: `${card.x}px`,
-    top: `${card.y}px`,
+    '--preview-x': `${card.x}px`,
+    '--preview-y': `${card.y}px`,
     '--undo-card-delay': `${card.delay}ms`,
     '--drag-card-x': `${Math.min(card.delay / 16 * 5, 18)}px`,
     '--drag-card-rotate': `${Math.min(card.delay / 16 * 1.2, 4)}deg`
@@ -614,6 +625,14 @@ function isUndoAnimatingCard(cardId) {
   return undoPreview.value?.hiddenCardIds.has(cardId) ?? false
 }
 
+function isDraggableTableauStack(columnIndex, cardIndex) {
+  return canDragSource({
+    area: 'tableau',
+    columnIndex,
+    cardIndex
+  })
+}
+
 function getFoundationVisibleCard(foundationPile) {
   const topCard = foundationPile[foundationPile.length - 1]
 
@@ -660,8 +679,8 @@ function dragPreviewCardStyle(index) {
   if (!cardPosition) return {}
 
   return {
-    left: `${cardPosition.x}px`,
-    top: `${cardPosition.y}px`,
+    '--preview-x': `${cardPosition.x}px`,
+    '--preview-y': `${cardPosition.y}px`,
     '--drag-card-delay': `${index * 18}ms`,
     '--drag-card-x': `${index * 5}px`,
     '--drag-card-rotate': `${Math.min(index * 1.4, 5)}deg`
@@ -925,6 +944,7 @@ onBeforeUnmount(() => {
           :key="card.id"
           :data-card-id="card.id"
           :class="{
+            movable: isDraggableTableauStack(columnIndex, cardIndex),
             selected: isSelectedTableauCard(columnIndex, cardIndex),
             dragging:
               isDraggingTableauCard(columnIndex, cardIndex) ||
@@ -1073,19 +1093,19 @@ onBeforeUnmount(() => {
   transition: margin-top .18s ease-out;
 }
 
-.card-wrapper,
+.card-wrapper.movable,
 .draggable-card {
   cursor: grab;
 }
 
-.card-wrapper:active,
+.card-wrapper.movable:active,
 .draggable-card:active {
   cursor: grabbing;
 }
 
 .card-wrapper.dragging,
 .cell-slot.dragging :deep(.card) {
-  opacity: 0;
+  visibility: hidden;
 }
 
 .drag-preview {
@@ -1109,36 +1129,41 @@ onBeforeUnmount(() => {
 
 .drag-preview-card {
   position: fixed;
+  left: 0;
+  top: 0;
   width: var(--card-width);
-  transform: translateX(var(--drag-card-x, 0)) rotate(var(--drag-card-rotate, 0deg));
+  transform:
+    translate3d(var(--preview-x, 0), var(--preview-y, 0), 0)
+    translateX(var(--drag-card-x, 0))
+    rotate(var(--drag-card-rotate, 0deg));
   transform-origin: 50% 12%;
-  transition: transform .14s ease-out var(--drag-card-delay, 0ms);
+  backface-visibility: hidden;
+  transition: none;
+  will-change: transform;
 }
 
 .auto-move-preview-card,
 .undo-preview-card {
   position: fixed;
+  left: 0;
+  top: 0;
   width: var(--card-width);
-  transform: translateX(var(--drag-card-x, 0)) rotate(var(--drag-card-rotate, 0deg));
+  transform:
+    translate3d(var(--preview-x, 0), var(--preview-y, 0), 0)
+    translateX(var(--drag-card-x, 0))
+    rotate(var(--drag-card-rotate, 0deg));
   transform-origin: 50% 12%;
-  transition:
-    left .24s ease-in-out,
-    top .24s ease-in-out,
-    transform .24s ease-in-out;
+  backface-visibility: hidden;
+  transition: transform .24s ease-in-out;
+  will-change: transform;
 }
 
 .undo-preview-card {
-  transition:
-    left .26s ease-in-out var(--undo-card-delay, 0ms),
-    top .26s ease-in-out var(--undo-card-delay, 0ms),
-    transform .26s ease-in-out var(--undo-card-delay, 0ms);
+  transition: transform .26s ease-in-out var(--undo-card-delay, 0ms);
 }
 
 .drag-preview.returning .drag-preview-card {
-  transition:
-    left .18s ease-out,
-    top .18s ease-out,
-    transform .18s ease-out;
+  transition: transform .18s ease-out;
 }
 
 .card-wrapper.selected :deep(.card),
