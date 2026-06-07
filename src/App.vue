@@ -160,20 +160,33 @@
 </script>
 
 <template>
-  <GameBoard
-    :game-state="gameState"
-    :selected-source="selectedSource"
-    @tableau-click="handleClick"
-    @free-cell-click="handleFreeCellClick"
-    @foundation-click="handleFoundationClick"
-     />
+  <div class="game-board-area">
+    <GameBoard
+      :game-state="gameState"
+      :selected-source="selectedSource"
+      @tableau-click="handleClick"
+      @free-cell-click="handleFreeCellClick"
+      @foundation-click="handleFoundationClick"
+      />
 
-  <GameControls
-    @undo="handleUndo"
-    @hint="handleHint"
-    @new-game="handleNewGame"
-     />
+    <GameControls
+      @undo="handleUndo"
+      @hint="handleHint"
+      @new-game="handleNewGame"
+      />
+  </div>
 </template>
 
 <style scoped>
+.game-board-area {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+.game-controls {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
 </style>
