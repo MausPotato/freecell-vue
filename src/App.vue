@@ -22,6 +22,7 @@
   })
 
   function handleClick({ card, columnIndex, cardIndex }) {
+    if (!selectedSource.value && !card) return
     if (selectedSource.value?.area === 'freeCell') {
       moveFreeCellToTableau(selectedSource.value.cellIndex, columnIndex)
       selectedSource.value = null
@@ -34,8 +35,6 @@
       return
     }
 
-    if (!card) return
-
     selectedSource.value = {
       area: 'tableau',
       card,
@@ -46,12 +45,20 @@
   }
 
   function moveTableauStackToTableau(source, targetColumnIndex) {
+    console.log(source, targetColumnIndex)
     if (!source) return
     if (source.columnIndex === targetColumnIndex) return
     const sourceColumn = gameState.tableau[source.columnIndex]
     const targetColumn = gameState.tableau[targetColumnIndex]
     const movingCards = sourceColumn.slice(source.cardIndex)
-    const movableStackLimit = getMovableStackLimit(gameState)
+    const movableStackLimit = getMovableStackLimit(gameState, source.columnIndex, targetColumnIndex)
+    console.log({
+      movingCards,
+      movableStackLimit,
+      validStack: isValidTableauStack(movingCards),
+      canPlace: canMoveToTableau(movingCards[0], targetColumn),
+      targetTop: targetColumn[targetColumn.length - 1]
+    })
     if (movingCards.length > movableStackLimit) {
       console.log('超過可移動張數')
       return
@@ -152,7 +159,7 @@
 <template>
   <GameBoard
     :game-state="gameState"
-    @card-click="handleClick"
+    @tableau-click="handleClick"
     @free-cell-click="handleFreeCellClick"
     @foundation-click="handleFoundationClick"
      />

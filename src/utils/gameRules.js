@@ -24,6 +24,7 @@ export function getCardColor(card) {
 export function canMoveToTableau(card, targetColumn) {
   if (!card) return
   const targetCard = targetColumn[targetColumn.length - 1]
+  if (targetColumn.length === 0) return true
   if (!targetCard) return true
   const isDecreasingByOne = targetCard.point - card.point === 1
   const isDifferentColor = getCardColor(card) !== getCardColor(targetCard)
@@ -42,7 +43,10 @@ export function canMoveToFoundation(card, foundationPile) {
   return isSameSuit && isIncreasingByOne
 }
 
-export function getMovableStackLimit(gameState) {
+export function getMovableStackLimit(gameState, sourceColumnIndex, targetColumnIndex) {
   const emptyFreeCellCount = gameState.freeCells.filter(cell => cell === null).length
-  return emptyFreeCellCount + 1
+  const emptyTableauCount = gameState.tableau.filter((column, index) => {
+    return index !== sourceColumnIndex && index !== targetColumnIndex && column.length === 0
+  }).length
+  return (emptyFreeCellCount + 1) * 2 ** emptyTableauCount
 }

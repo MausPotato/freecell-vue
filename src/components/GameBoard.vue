@@ -8,13 +8,17 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['card-click', 'free-cell-click', 'foundation-click'])
+const emit = defineEmits(['tableau-click', 'free-cell-click', 'foundation-click'])
+
 function handleCardClick(card, columnIndex, cardIndex) {
-  emit('card-click', { card, columnIndex, cardIndex })
+  emit('tableau-click', {
+    card,
+    columnIndex,
+    cardIndex
+  })
 }
 
 function handleFreeCellClick(card, cellIndex) {
-  console.log('GameBoard free cell:', card, cellIndex)
   emit('free-cell-click', {
     card, cellIndex
   })
@@ -23,6 +27,14 @@ function handleFreeCellClick(card, cellIndex) {
 function handleFoundationClick(foundation, foundationIndex) {
   emit('foundation-click', {
     foundation, foundationIndex
+  })
+}
+
+function handleColumnClick(columnIndex) {
+  emit('tableau-click', {
+    card: null,
+    columnIndex,
+    cardIndex: null
   })
 }
 
@@ -61,14 +73,20 @@ function handleFoundationClick(foundation, foundationIndex) {
       <div 
         class="column" 
         v-for="(column, columnIndex) in gameState.tableau" 
-        :key="columnIndex"
+        :key="`column-${columnIndex}`"
+        @click="handleColumnClick(columnIndex)"
       >
-        <Card 
+        <div
+          class="card-wrapper"
           v-for="(card, cardIndex) in column"
           :key="card.id"
-          :card="card"
-          @card-click="handleCardClick(card, columnIndex, cardIndex)" 
+          @click.stop
+        >
+          <Card 
+            :card="card"
+            @card-click="handleCardClick(card, columnIndex, cardIndex)" 
           />
+        </div>
       </div>
     </div>
   </div>
@@ -114,9 +132,14 @@ function handleFoundationClick(foundation, foundationIndex) {
   display: flex;
   flex-direction: column;
   width: var(--card-width);
+  min-height: var(--card-height, 10.5vw);
+  background-image: url(/card/c0.png);
+  background-size: contain;
+  background-position: top center;
+  background-repeat: no-repeat;
 }
 
-.column :deep(.card:not(:first-child)) {
+.card-wrapper:not(:first-child) {
   margin-top: -8vw;
 }
 </style>
