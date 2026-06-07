@@ -29,8 +29,5 @@
     background-repeat: no-repeat;
     user-select: none;
     -webkit-user-drag: none;
-    /* position: absolute; */
-    top: 100%;
-    left: 50%;
   }
 </style>

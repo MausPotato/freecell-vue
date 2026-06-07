@@ -26,6 +26,7 @@
   const showWinDialog = ref(false)
   const hintMove = ref(null)
   const dragSource = ref(null)
+  const gameBoardRef = ref(null)
 
   watch(isGameWon, (hasWon) => {
     if (!hasWon) return
@@ -60,6 +61,132 @@
 
   function handleDragEnd() {
     dragSource.value = null
+  }
+
+  function handleAutoMove(payload) {
+    const source = payload.source ?? payload
+    const animate = payload.animate
+    clearHint()
+    selectedSource.value = null
+
+    const destination = findAutoMoveDestination(source)
+    if (!destination) return
+
+    const commit = () => {
+      moveSourceToDestination(source, destination)
+    }
+
+    if (animate) {
+      animate(destination, commit)
+      return
+    }
+
+    commit()
+  }
+
+  function findAutoMoveDestination(source) {
+    return (
+      findAutoMoveFoundationDestination(source) ||
+      findAutoMoveTableauDestination(source) ||
+      findAutoMoveFreeCellDestination(source)
+    )
+  }
+
+  function findAutoMoveFoundationDestination(source) {
+    if (source.area === 'foundation') return null
+
+    const foundationIndex = getFoundationIndex(source.card)
+    const foundationPile = gameState.foundations[foundationIndex]
+
+    if (canMoveSourceToFoundation(source, foundationPile, foundationIndex)) {
+      return { area: 'foundation', foundationIndex }
+    }
+
+    return null
+  }
+
+  function findAutoMoveTableauDestination(source) {
+    for (let columnIndex = 0; columnIndex < gameState.tableau.length; columnIndex++) {
+      if (source.area === 'tableau' && source.columnIndex === columnIndex) continue
+
+      if (canMoveSourceToTableau(source, columnIndex)) {
+        return { area: 'tableau', columnIndex }
+      }
+    }
+
+    return null
+  }
+
+  function findAutoMoveFreeCellDestination(source) {
+    if (source.area === 'freeCell') return null
+
+    for (let cellIndex = 0; cellIndex < gameState.freeCells.length; cellIndex++) {
+      if (!gameState.freeCells[cellIndex] && canMoveSourceToFreeCell(source)) {
+        return { area: 'freeCell', cellIndex }
+      }
+    }
+
+    return null
+  }
+
+  function canMoveSourceToTableau(source, columnIndex) {
+    const targetColumn = gameState.tableau[columnIndex]
+
+    if (source.area === 'tableau') {
+      const sourceColumn = gameState.tableau[source.columnIndex]
+      const movingCards = sourceColumn.slice(source.cardIndex)
+      const movableStackLimit = getMovableStackLimit(gameState, source.columnIndex, columnIndex)
+
+      return (
+        source.columnIndex !== columnIndex &&
+        movingCards.length <= movableStackLimit &&
+        isValidTableauStack(movingCards) &&
+        canMoveToTableau(movingCards[0], targetColumn)
+      )
+    }
+
+    if (source.area === 'freeCell') {
+      return canMoveToTableau(gameState.freeCells[source.cellIndex], targetColumn)
+    }
+
+    if (source.area === 'foundation') {
+      const foundationPile = gameState.foundations[source.foundationIndex]
+      return canMoveToTableau(foundationPile[foundationPile.length - 1], targetColumn)
+    }
+
+    return false
+  }
+
+  function canMoveSourceToFreeCell(source) {
+    if (source.area === 'foundation') {
+      return Boolean(gameState.foundations[source.foundationIndex].length)
+    }
+
+    if (source.area !== 'tableau') return false
+
+    const sourceColumn = gameState.tableau[source.columnIndex]
+    return source.cardIndex === sourceColumn.length - 1
+  }
+
+  function canMoveSourceToFoundation(source, foundationPile, foundationIndex) {
+    let movingCard = null
+
+    if (source.area === 'tableau') {
+      const sourceColumn = gameState.tableau[source.columnIndex]
+      if (source.cardIndex !== sourceColumn.length - 1) return false
+      movingCard = sourceColumn[source.cardIndex]
+    }
+
+    if (source.area === 'freeCell') {
+      movingCard = gameState.freeCells[source.cellIndex]
+    }
+
+    if (!movingCard) return false
+
+    return (
+      foundationIndex === getFoundationIndex(movingCard) &&
+      canMoveToFoundation(movingCard, foundationPile)
+    )
   }
 
   function moveSourceToDestination(source, to) {
@@ -267,8 +394,19 @@
     clearHint()
     const previousState = history.value.pop()
     if (!previousState) return
-    restoreGameState(previousState)
     selectedSource.value = null
+
+    const currentState = cloneGameState(gameState)
+    const commit = () => {
+      restoreGameState(previousState)
+    }
+
+    if (gameBoardRef.value?.animateUndo) {
+      gameBoardRef.value.animateUndo(currentState, previousState, commit)
+      return
+    }
+
+    commit()
   }
 
   function saveHistory() {
@@ -412,6 +550,7 @@
 <template>
   <div class="game-board-area">
     <GameBoard
+      ref="gameBoardRef"
       :game-state="gameState"
       :selected-source="selectedSource"
       :hint-move="hintMove"
@@ -421,6 +560,7 @@
       @drag-start="handleDragStart"
       @card-drop="handleDrop"
       @drag-end="handleDragEnd"
+      @card-double-click="handleAutoMove"
       />
 
     <GameTimer

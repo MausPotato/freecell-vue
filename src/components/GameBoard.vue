@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import Card from './Card.vue'
 
 const props = defineProps({
@@ -21,6 +21,7 @@ const emit = defineEmits([
   'tableau-click',
   'free-cell-click',
   'foundation-click',
+  'card-double-click',
   'drag-start',
   'card-drop',
   'drag-end'
@@ -28,9 +29,19 @@ const emit = defineEmits([
 
 const foundationSlots = ['s0.png', 'h0.png', 'd0.png', 'c0.png']
 const dragPreview = ref(null)
+const autoMovePreview = ref(null)
+const undoPreview = ref(null)
 const suppressClick = ref(false)
 const dragThreshold = 6
+const doubleClickDelay = 320
+const viewportHeight = ref(window.innerHeight)
+let lastTap = null
 let dragAnimationFrame = null
+let undoAnimationTimer = null
+
+defineExpose({
+  animateUndo
+})
 
 function handleCardClick(card, columnIndex, cardIndex) {
   if (suppressClick.value) {
@@ -45,6 +56,10 @@ function handleCardClick(card, columnIndex, cardIndex) {
 }
 
 function handleColumnClick(columnIndex) {
+  if (suppressClick.value) {
+    suppressClick.value = false
+    return
+  }
   emit('tableau-click', {
     card: null,
     columnIndex,
@@ -53,6 +68,10 @@ function handleColumnClick(columnIndex) {
 }
 
 function handleFreeCellClick(card, cellIndex) {
+  if (suppressClick.value) {
+    suppressClick.value = false
+    return
+  }
   emit('free-cell-click', {
     card,
     cellIndex
@@ -60,6 +79,10 @@ function handleFreeCellClick(card, cellIndex) {
 }
 
 function handleFoundationClick(foundation, foundationIndex) {
+  if (suppressClick.value) {
+    suppressClick.value = false
+    return
+  }
   emit('foundation-click', {
     foundation,
     foundationIndex
@@ -71,6 +94,22 @@ function handleDragStart(event, source) {
   event.preventDefault()
   const target = event.currentTarget
   const rect = target.getBoundingClientRect()
+
+  if (isDoubleTap(source)) {
+    suppressClick.value = true
+    lastTap = null
+    emit('card-double-click', {
+      source,
+      animate: (to, commit) => animateAutoMove(source, to, rect, commit)
+    })
+    return
+  }
+
+  lastTap = {
+    key: getSourceKey(source),
+    time: performance.now()
+  }
+
   const cards = getDragCards(source)
   const cardStep = getPreviewCardStep(target, source)
 
@@ -101,6 +140,23 @@ function handleDragStart(event, source) {
   window.addEventListener('pointerup', handlePointerUp, { once: true })
   window.addEventListener('pointercancel', handlePointerCancel, { once: true })
   window.addEventListener('blur', handlePointerCancel, { once: true })
+}
+
+function isDoubleTap(source) {
+  if (!lastTap) return false
+
+  const isSameSource = lastTap.key === getSourceKey(source)
+  const isFastEnough = performance.now() - lastTap.time <= doubleClickDelay
+
+  return isSameSource && isFastEnough
+}
+
+function getSourceKey(source) {
+  if (source.area === 'tableau') return `tableau:${source.columnIndex}:${source.cardIndex}`
+  if (source.area === 'freeCell') return `freeCell:${source.cellIndex}`
+  if (source.area === 'foundation') return `foundation:${source.foundationIndex}`
+
+  return source.area
 }
 
 function handleDrop(to) {
@@ -197,9 +253,334 @@ function getDragCards(source) {
   return source.card ? [source.card] : []
 }
 
+function animateAutoMove(source, to, sourceRect, commit) {
+  const cards = getDragCards(source)
+  const targetRect = getDropTargetRect(to, cards.length)
+
+  if (!targetRect) {
+    commit()
+    return
+  }
+
+  const cardStep =
+    to.area === 'tableau'
+      ? targetRect.cardStep
+      : getPreviewCardStepFromSource(source)
+  autoMovePreview.value = {
+    source,
+    cards,
+    cardStep,
+    x: sourceRect.left,
+    y: sourceRect.top,
+    commit
+  }
+
+  requestAnimationFrame(() => {
+    if (!autoMovePreview.value) return
+
+    autoMovePreview.value.x = targetRect.left
+    autoMovePreview.value.y = targetRect.top
+  })
+}
+
+function getDropTargetRect(to, movingCardCount = 1) {
+  let selector = ''
+
+  if (to.area === 'tableau') {
+    const column = document.querySelector(
+      `[data-drop-area="tableau"][data-column-index="${to.columnIndex}"]`
+    )
+    const columnRect = column?.getBoundingClientRect()
+
+    if (!columnRect) return null
+
+    const targetColumn = props.gameState.tableau[to.columnIndex]
+    const targetCardIndex = targetColumn.length
+    const cardStep = getColumnCardStep(targetColumn.length + movingCardCount)
+    const targetTop = columnRect.top + cardStep * targetCardIndex
+
+    return {
+      left: columnRect.left,
+      top: targetTop,
+      right: columnRect.right,
+      bottom: targetTop + columnRect.height,
+      width: columnRect.width,
+      height: columnRect.height,
+      x: columnRect.left,
+      y: targetTop,
+      cardStep
+    }
+  }
+  if (to.area === 'freeCell') {
+    selector = `[data-drop-area="freeCell"][data-cell-index="${to.cellIndex}"]`
+  }
+  if (to.area === 'foundation') {
+    selector = `[data-drop-area="foundation"][data-foundation-index="${to.foundationIndex}"]`
+  }
+
+  return document.querySelector(selector)?.getBoundingClientRect()
+}
+
+function getUndoTargetRect(to, previousState) {
+  if (to.area === 'tableau') {
+    const column = document.querySelector(
+      `[data-drop-area="tableau"][data-column-index="${to.columnIndex}"]`
+    )
+    const columnRect = column?.getBoundingClientRect()
+
+    if (!columnRect) return null
+
+    const targetColumn = previousState.tableau[to.columnIndex]
+    const cardStep = getColumnCardStep(targetColumn.length)
+    const targetTop = columnRect.top + cardStep * to.cardIndex
+
+    return {
+      left: columnRect.left,
+      top: targetTop,
+      right: columnRect.right,
+      bottom: targetTop + columnRect.height,
+      width: columnRect.width,
+      height: columnRect.height,
+      x: columnRect.left,
+      y: targetTop
+    }
+  }
+
+  if (to.area === 'freeCell') {
+    return document
+      .querySelector(`[data-drop-area="freeCell"][data-cell-index="${to.cellIndex}"]`)
+      ?.getBoundingClientRect()
+  }
+
+  if (to.area === 'foundation') {
+    return document
+      .querySelector(`[data-drop-area="foundation"][data-foundation-index="${to.foundationIndex}"]`)
+      ?.getBoundingClientRect()
+  }
+
+  return null
+}
+
+function getPreviewCardStepFromSource(source) {
+  if (source.area !== 'tableau') return 0
+
+  const sourceCard = document
+    .querySelector(`[data-card-id="${source.card.id}"]`)
+    ?.closest('.card-wrapper')
+
+  if (!sourceCard) return 0
+
+  return getPreviewCardStep(sourceCard, source)
+}
+
+function autoMovePreviewCardStyle(index) {
+  if (!autoMovePreview.value) return {}
+
+  return {
+    left: `${autoMovePreview.value.x}px`,
+    top: `${autoMovePreview.value.y + autoMovePreview.value.cardStep * index}px`,
+    '--drag-card-x': `${index * 5}px`,
+    '--drag-card-rotate': `${Math.min(index * 1.4, 5)}deg`
+  }
+}
+
+function getCurrentCardStep() {
+  const styles = getComputedStyle(document.documentElement)
+  const rootStep = styles.getPropertyValue('--tableau-card-step')
+  const parsedRootStep = Number.parseFloat(rootStep)
+
+  if (Number.isFinite(parsedRootStep)) return parsedRootStep
+
+  const board = document.getElementById('game-board')
+  if (!board) return 0
+
+  const boardStep = getComputedStyle(board).getPropertyValue('--tableau-card-step')
+  const parsedBoardStep = Number.parseFloat(boardStep)
+
+  return Number.isFinite(parsedBoardStep) ? parsedBoardStep : 0
+}
+
+function finishAutoMoveAnimation() {
+  if (!autoMovePreview.value) return
+
+  const commit = autoMovePreview.value.commit
+  autoMovePreview.value = null
+  commit()
+}
+
+function animateUndo(currentState, previousState, commit) {
+  const movedCards = getUndoMovedCards(currentState, previousState)
+
+  if (!movedCards.length) {
+    commit()
+    return
+  }
+
+  const cards = movedCards
+    .map((move, index) => {
+      const sourceRect = getCardRect(move.card.id)
+      const targetRect = getUndoTargetRect(move.to, previousState)
+
+      if (!sourceRect || !targetRect) return null
+
+      return {
+        ...move,
+        x: sourceRect.left,
+        y: sourceRect.top,
+        targetX: targetRect.left,
+        targetY: targetRect.top,
+        delay: index * 16
+      }
+    })
+    .filter(Boolean)
+
+  if (!cards.length) {
+    commit()
+    return
+  }
+
+  undoPreview.value = {
+    cards,
+    hiddenCardIds: new Set(cards.map(card => card.card.id)),
+    commit
+  }
+
+  requestAnimationFrame(() => {
+    if (!undoPreview.value) return
+
+    undoPreview.value.cards = undoPreview.value.cards.map(card => ({
+      ...card,
+      x: card.targetX,
+      y: card.targetY
+    }))
+  })
+
+  undoAnimationTimer = window.setTimeout(finishUndoAnimation, cards.length * 16 + 300)
+}
+
+function getUndoMovedCards(currentState, previousState) {
+  const currentLocations = getCardLocationMap(currentState)
+  const previousLocations = getCardLocationMap(previousState)
+  const movedCards = []
+
+  previousLocations.forEach((previousLocation, cardId) => {
+    const currentLocation = currentLocations.get(cardId)
+
+    if (!currentLocation || isSameLocation(currentLocation, previousLocation)) return
+
+    movedCards.push({
+      card: currentLocation.card,
+      from: currentLocation,
+      to: previousLocation
+    })
+  })
+
+  return movedCards.sort((first, second) => first.from.order - second.from.order)
+}
+
+function getCardLocationMap(state) {
+  const locations = new Map()
+
+  state.freeCells.forEach((card, cellIndex) => {
+    if (!card) return
+
+    locations.set(card.id, {
+      area: 'freeCell',
+      cellIndex,
+      card,
+      order: 0
+    })
+  })
+
+  state.foundations.forEach((foundationPile, foundationIndex) => {
+    foundationPile.forEach((card, cardIndex) => {
+      locations.set(card.id, {
+        area: 'foundation',
+        foundationIndex,
+        cardIndex,
+        card,
+        order: cardIndex
+      })
+    })
+  })
+
+  state.tableau.forEach((column, columnIndex) => {
+    column.forEach((card, cardIndex) => {
+      locations.set(card.id, {
+        area: 'tableau',
+        columnIndex,
+        cardIndex,
+        card,
+        order: cardIndex
+      })
+    })
+  })
+
+  return locations
+}
+
+function isSameLocation(currentLocation, previousLocation) {
+  if (currentLocation.area !== previousLocation.area) return false
+
+  if (currentLocation.area === 'tableau') {
+    return (
+      currentLocation.columnIndex === previousLocation.columnIndex &&
+      currentLocation.cardIndex === previousLocation.cardIndex
+    )
+  }
+
+  if (currentLocation.area === 'freeCell') {
+    return currentLocation.cellIndex === previousLocation.cellIndex
+  }
+
+  if (currentLocation.area === 'foundation') {
+    return (
+      currentLocation.foundationIndex === previousLocation.foundationIndex &&
+      currentLocation.cardIndex === previousLocation.cardIndex
+    )
+  }
+
+  return false
+}
+
+function getCardRect(cardId) {
+  return document.querySelector(`[data-card-id="${cardId}"]`)?.getBoundingClientRect()
+}
+
+function undoPreviewCardStyle(card) {
+  return {
+    left: `${card.x}px`,
+    top: `${card.y}px`,
+    '--undo-card-delay': `${card.delay}ms`,
+    '--drag-card-x': `${Math.min(card.delay / 16 * 5, 18)}px`,
+    '--drag-card-rotate': `${Math.min(card.delay / 16 * 1.2, 4)}deg`
+  }
+}
+
+function finishUndoAnimation() {
+  if (!undoPreview.value) return
+
+  if (undoAnimationTimer) {
+    window.clearTimeout(undoAnimationTimer)
+    undoAnimationTimer = null
+  }
+
+  const commit = undoPreview.value.commit
+  undoPreview.value = null
+  commit()
+}
+
 function isDraggingTableauCard(columnIndex, cardIndex) {
   const source = dragPreview.value?.source
   if (!dragPreview.value?.hasMoved || source?.area !== 'tableau') return false
+  if (source.columnIndex !== columnIndex) return false
+
+  return cardIndex >= source.cardIndex
+}
+
+function isAutoMovingTableauCard(columnIndex, cardIndex) {
+  const source = autoMovePreview.value?.source
+  if (source?.area !== 'tableau') return false
   if (source.columnIndex !== columnIndex) return false
 
   return cardIndex >= source.cardIndex
@@ -210,6 +591,11 @@ function isDraggingFreeCell(cellIndex) {
   return dragPreview.value?.hasMoved && source?.area === 'freeCell' && source.cellIndex === cellIndex
 }
 
+function isAutoMovingFreeCell(cellIndex) {
+  const source = autoMovePreview.value?.source
+  return source?.area === 'freeCell' && source.cellIndex === cellIndex
+}
+
 function isDraggingFoundation(foundationIndex) {
   const source = dragPreview.value?.source
   return (
@@ -217,6 +603,50 @@ function isDraggingFoundation(foundationIndex) {
     source?.area === 'foundation' &&
     source.foundationIndex === foundationIndex
   )
+}
+
+function isAutoMovingFoundation(foundationIndex) {
+  const source = autoMovePreview.value?.source
+  return source?.area === 'foundation' && source.foundationIndex === foundationIndex
+}
+
+function isUndoAnimatingCard(cardId) {
+  return undoPreview.value?.hiddenCardIds.has(cardId) ?? false
+}
+
+function getFoundationVisibleCard(foundationPile) {
+  const topCard = foundationPile[foundationPile.length - 1]
+
+  if (!topCard) return null
+
+  const isTopCardLifted =
+    isDraggingFoundationCard(topCard.id) ||
+    isAutoMovingFoundationCard(topCard.id) ||
+    isUndoAnimatingCard(topCard.id)
+
+  if (!isTopCardLifted) return topCard
+
+  if (foundationPile.length > 1) {
+    return foundationPile[foundationPile.length - 2]
+  }
+
+  return null
+}
+
+function isDraggingFoundationCard(cardId) {
+  const source = dragPreview.value?.source
+
+  return (
+    dragPreview.value?.hasMoved &&
+    source?.area === 'foundation' &&
+    source.card?.id === cardId
+  )
+}
+
+function isAutoMovingFoundationCard(cardId) {
+  const source = autoMovePreview.value?.source
+
+  return source?.area === 'foundation' && source.card?.id === cardId
 }
 
 function foundationSlotStyle(foundationIndex) {
@@ -365,11 +795,57 @@ function isHintToTableauColumn(columnIndex) {
 function isHintToTableauCard(columnIndex, cardIndex, column) {
   return isHintToTableauColumn(columnIndex) && cardIndex === column.length - 1
 }
+
+const boardStyle = computed(() => {
+  return {}
+})
+
+function getColumnStyle(column) {
+  return {
+    '--tableau-card-step': `${getColumnCardStep(column.length)}px`
+  }
+}
+
+function getColumnCardStep(cardCount) {
+  const cardWidth = Math.max(window.innerWidth * .08, 1)
+  const cardHeight = cardWidth * 21 / 16
+  const topAreaHeight = cardHeight
+  const verticalPadding = window.innerWidth * .04
+  const tableauGap = window.innerWidth * .05
+  const bottomReserve = Math.max(window.innerHeight * .035, 16)
+  const availableTableauHeight = Math.max(
+    cardHeight,
+    viewportHeight.value - verticalPadding - topAreaHeight - tableauGap - bottomReserve
+  )
+  const naturalStep = cardWidth * .3125
+  const compressedStep =
+    cardCount > 1
+      ? (availableTableauHeight - cardHeight) / (cardCount - 1)
+      : naturalStep
+
+  return Math.max(cardWidth * .11, Math.min(naturalStep, compressedStep))
+}
+
+function updateViewportHeight() {
+  viewportHeight.value = window.innerHeight
+}
+
+onMounted(() => {
+  window.addEventListener('resize', updateViewportHeight)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewportHeight)
+  if (undoAnimationTimer) {
+    window.clearTimeout(undoAnimationTimer)
+  }
+})
 </script>
 
 <template>
   <div
     id="game-board"
+    :style="boardStyle"
     @contextmenu.prevent
     @dragstart.prevent
   >
@@ -382,7 +858,10 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
           :class="{
             selected: isSelectedFreeCell(cellIndex),
             hint: isHintFromFreeCell(cellIndex),
-            dragging: isDraggingFreeCell(cellIndex)
+            dragging:
+              isDraggingFreeCell(cellIndex) ||
+              isAutoMovingFreeCell(cellIndex) ||
+              isUndoAnimatingCard(cell?.id)
           }"
           data-drop-area="freeCell"
           :data-cell-index="cellIndex"
@@ -391,6 +870,7 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
           <div
             v-if="cell"
             class="draggable-card"
+            :data-card-id="cell.id"
             @pointerdown.stop="handleDragStart($event, { area: 'freeCell', card: cell, cellIndex })"
           >
             <Card :card="cell" />
@@ -404,8 +884,7 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
           v-for="(foundationPile, foundationIndex) in gameState.foundations"
           :key="`foundation-${foundationIndex}`"
           :class="{
-            selected: isSelectedFoundation(foundationIndex),
-            dragging: isDraggingFoundation(foundationIndex)
+            selected: isSelectedFoundation(foundationIndex)
           }"
           data-drop-area="foundation"
           :data-foundation-index="foundationIndex"
@@ -413,17 +892,18 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
           @click="handleFoundationClick(foundationPile, foundationIndex)"
         >
           <div
-            v-if="foundationPile.length"
+            v-if="getFoundationVisibleCard(foundationPile)"
             class="draggable-card"
+            :data-card-id="getFoundationVisibleCard(foundationPile).id"
             @pointerdown.stop="
               handleDragStart($event, {
                 area: 'foundation',
-                card: foundationPile[foundationPile.length - 1],
+                card: getFoundationVisibleCard(foundationPile),
                 foundationIndex
               })
             "
           >
-            <Card :card="foundationPile[foundationPile.length - 1]" />
+            <Card :card="getFoundationVisibleCard(foundationPile)" />
           </div>
         </div>
       </div>
@@ -434,6 +914,7 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
         class="column"
         v-for="(column, columnIndex) in gameState.tableau"
         :key="`column-${columnIndex}`"
+        :style="getColumnStyle(column)"
         data-drop-area="tableau"
         :data-column-index="columnIndex"
         @click="handleColumnClick(columnIndex)"
@@ -442,9 +923,13 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
           class="card-wrapper"
           v-for="(card, cardIndex) in column"
           :key="card.id"
+          :data-card-id="card.id"
           :class="{
             selected: isSelectedTableauCard(columnIndex, cardIndex),
-            dragging: isDraggingTableauCard(columnIndex, cardIndex),
+            dragging:
+              isDraggingTableauCard(columnIndex, cardIndex) ||
+              isAutoMovingTableauCard(columnIndex, cardIndex) ||
+              isUndoAnimatingCard(card.id),
             hint:
               isHintFromTableauCard(columnIndex, cardIndex) ||
               isHintToTableauCard(columnIndex, cardIndex, column)
@@ -477,6 +962,35 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
         <Card :card="card" />
       </div>
     </div>
+
+    <div
+      v-if="autoMovePreview"
+      class="auto-move-preview"
+      @transitionend="finishAutoMoveAnimation"
+    >
+      <div
+        class="auto-move-preview-card"
+        v-for="(card, index) in autoMovePreview.cards"
+        :key="`auto-${card.id}`"
+        :style="autoMovePreviewCardStyle(index)"
+      >
+        <Card :card="card" />
+      </div>
+    </div>
+
+    <div
+      v-if="undoPreview"
+      class="undo-preview"
+    >
+      <div
+        class="undo-preview-card"
+        v-for="card in undoPreview.cards"
+        :key="`undo-${card.card.id}`"
+        :style="undoPreviewCardStyle(card)"
+      >
+        <Card :card="card.card" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -486,13 +1000,17 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
   flex-direction: column;
   align-items: center;
   width: 100vw;
-  min-height: 100vh;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
   background-image: url(/img/freecell_bg.png);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   padding: 2vw;
   --card-width: 8vw;
+  --card-height: calc(var(--card-width) * 21 / 16);
+  --tableau-card-step: calc(var(--card-width) * .3125);
 }
 
 .top-area {
@@ -540,7 +1058,7 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
 }
 
 .card-wrapper:not(:first-child) {
-  margin-top: -8vw;
+  margin-top: calc(var(--tableau-card-step) - var(--card-height));
 }
 
 .card-wrapper,
@@ -549,6 +1067,10 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
   touch-action: none;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.card-wrapper {
+  transition: margin-top .18s ease-out;
 }
 
 .card-wrapper,
@@ -575,12 +1097,41 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
   -webkit-user-drag: none;
 }
 
+.auto-move-preview,
+.undo-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .drag-preview-card {
   position: fixed;
   width: var(--card-width);
   transform: translateX(var(--drag-card-x, 0)) rotate(var(--drag-card-rotate, 0deg));
   transform-origin: 50% 12%;
   transition: transform .14s ease-out var(--drag-card-delay, 0ms);
+}
+
+.auto-move-preview-card,
+.undo-preview-card {
+  position: fixed;
+  width: var(--card-width);
+  transform: translateX(var(--drag-card-x, 0)) rotate(var(--drag-card-rotate, 0deg));
+  transform-origin: 50% 12%;
+  transition:
+    left .24s ease-in-out,
+    top .24s ease-in-out,
+    transform .24s ease-in-out;
+}
+
+.undo-preview-card {
+  transition:
+    left .26s ease-in-out var(--undo-card-delay, 0ms),
+    top .26s ease-in-out var(--undo-card-delay, 0ms),
+    transform .26s ease-in-out var(--undo-card-delay, 0ms);
 }
 
 .drag-preview.returning .drag-preview-card {
