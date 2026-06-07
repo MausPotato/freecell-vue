@@ -1,5 +1,5 @@
 <script setup>
-  import { ref, reactive } from 'vue'
+  import { ref, reactive, computed, watch } from 'vue'
   import { isValidTableauStack, canMoveToTableau, canMoveToFoundation, getMovableStackLimit } from './utils/gameRules'
   import { createGameState } from './utils/gameSetup'
   import GameBoard from './components/GameBoard.vue'
@@ -14,6 +14,16 @@ import GameTimer from './components/GameTimer.vue'
   const seconds = ref(0)
   const timerId = ref(null)
   const wasTimerRunningBeforeDialog = ref(false)
+  const isGameWon = computed(() => {
+    return gameState.foundations.every(foundation => foundation.length === 13)
+  })
+
+  watch(isGameWon, (hasWon) => {
+    if (!hasWon) return
+    stopTimer()
+    selectedSource.value = null
+    console.log('You Win!')
+  })
 
   function handleClick({ card, columnIndex, cardIndex }) {
     if (!selectedSource.value && !card) return
