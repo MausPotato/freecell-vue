@@ -7,6 +7,7 @@
 
   const gameState = reactive(createGameState())
   const selectedSource = ref(null)
+  const history = ref([])
 
   function handleClick({ card, columnIndex, cardIndex }) {
     if (!selectedSource.value && !card) return
@@ -51,6 +52,7 @@
       return
     }
     if (isValidTableauStack(movingCards) && canMoveToTableau(movingCards[0], targetColumn)) {
+      saveHistory()
       sourceColumn.splice(source.cardIndex)
       targetColumn.push(...movingCards)
     }
@@ -96,6 +98,7 @@
       console.log('只能移動一張!')
       return
     }
+    saveHistory()
     const moveCard = sourceColumn.pop()
     gameState.freeCells[cellIndex] = moveCard
     selectedSource.value = null
@@ -135,26 +138,49 @@
       selectedSource.value = null
       return
     }
+    saveHistory()
     removeFromSource()
     foundationPile.push(movingCard)
     selectedSource.value = null
   }
 
-  function handleNewGame() {
-    console.log('new game clicked')
-    const newState = createGameState()
-    gameState.freeCells = newState.freeCells
-    gameState.foundations = newState.foundations
-    gameState.tableau = newState.tableau
+  function handleUndo() {
+    const previousState = history.value.pop()
+    if (!previousState) return
+    restoreGameState(previousState)
     selectedSource.value = null
   }
 
-  function handleUndo() {
-    console.log('undo')
+  function saveHistory() {
+    history.value.push(cloneGameState(gameState))
+  }
+
+  function cloneGameState(state) {
+    return {
+      freeCells: state.freeCells.map(card => card ? { ...card } : null),
+      foundations: state.foundations.map(foundations => foundations.map(card => ({...card}))),
+      tableau: state.tableau.map(column => column.map(card => ({...card})))
+    }
+  }
+
+  function restoreGameState(state) {
+    gameState.freeCells = state.freeCells
+    gameState.foundations = state.foundations
+    gameState.tableau = state.tableau
   }
 
   function handleHint() {
     console.log('hint')
+  }
+
+  function handleNewGame() {
+    const newState = createGameState()
+    restoreGameState(newState)
+    gameState.freeCells = newState.freeCells
+    gameState.foundations = newState.foundations
+    gameState.tableau = newState.tableau
+    selectedSource.value = null
+    history.value = []
   }
 
 </script>

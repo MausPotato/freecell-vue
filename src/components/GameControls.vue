@@ -30,6 +30,7 @@ const emit = defineEmits(['undo', 'hint', 'new-game'])
   flex-direction: column;
   width: 10vw;
 }
+
 button {
   width: 7.5vh;
   height: 7.5vh;
