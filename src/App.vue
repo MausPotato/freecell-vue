@@ -4,10 +4,12 @@
   import { createGameState } from './utils/gameSetup'
   import GameBoard from './components/GameBoard.vue'
   import GameControls from './components/GameControls.vue'
+  import ConfirmDialog from './components/ConfirmDialog.vue'
 
   const gameState = reactive(createGameState())
   const selectedSource = ref(null)
   const history = ref([])
+  const showNewGameConfirm = ref(false)
 
   function handleClick({ card, columnIndex, cardIndex }) {
     if (!selectedSource.value && !card) return
@@ -64,6 +66,7 @@
     const targetColumn = gameState.tableau[targetColumnIndex]
     if (!card) return
     if (!canMoveToTableau(card, targetColumn)) return
+    saveHistory()
     targetColumn.push(card)
     gameState.freeCells[cellIndex] = null
     console.log('freecell 移到 tableau', card, targetColumnIndex)
@@ -174,13 +177,22 @@
   }
 
   function handleNewGame() {
+    showNewGameConfirm.value = true
+  }
+
+  function confirmNewGame() {
     const newState = createGameState()
     restoreGameState(newState)
-    gameState.freeCells = newState.freeCells
-    gameState.foundations = newState.foundations
-    gameState.tableau = newState.tableau
+    // gameState.freeCells = newState.freeCells
+    // gameState.foundations = newState.foundations
+    // gameState.tableau = newState.tableau
     selectedSource.value = null
     history.value = []
+    showNewGameConfirm.value = false
+  }
+
+  function cancelNewGame() {
+    showNewGameConfirm.value = false
   }
 
 </script>
@@ -199,6 +211,12 @@
       @undo="handleUndo"
       @hint="handleHint"
       @new-game="handleNewGame"
+      />
+    <ConfirmDialog
+      v-if="showNewGameConfirm"
+      message="START A NEW GAME?"
+      @cancel="cancelNewGame"
+      @confirm="confirmNewGame"
       />
   </div>
 </template>
