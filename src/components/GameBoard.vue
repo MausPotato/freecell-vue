@@ -13,6 +13,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['tableau-click', 'free-cell-click', 'foundation-click'])
+const foundationSuits = ['♠', '♥', '♦', '♣']
 
 function handleCardClick(card, columnIndex, cardIndex) {
   emit('tableau-click', {
@@ -84,6 +85,12 @@ function isSelectedFreeCell(cellIndex) {
             v-if="foundationPile.length"
             :card="foundationPile[foundationPile.length - 1]"
             />
+          <span
+            v-else
+            class="foundation-suit"
+          >
+            {{ foundationSuits[foundationIndex] }}
+          </span>
         </div>
       </div>
     </div>
@@ -135,10 +142,13 @@ function isSelectedFreeCell(cellIndex) {
 .cell-slot {
   width: var(--card-width);
   aspect-ratio: 16 / 21;
-  background-image: url(/card/c0.png);
+  background-image: url(/card/p.png);
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tableau {

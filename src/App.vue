@@ -156,6 +156,13 @@ import GameTimer from './components/GameTimer.vue'
         selectedSource.value = null
         return
     }
+
+    const correctFoundationIndex = getFoundationIndex(movingCard)
+    if (foundationIndex !== correctFoundationIndex) {
+      selectedSource.value = null
+      return
+    }
+
     if (!canMoveToFoundation(movingCard, foundationPile)) {
       console.log('不能移到 foundation')
       selectedSource.value = null
@@ -165,6 +172,10 @@ import GameTimer from './components/GameTimer.vue'
     removeFromSource()
     foundationPile.push(movingCard)
     selectedSource.value = null
+  }
+
+  function getFoundationIndex(card) {
+    return card.suit - 1
   }
 
   function handleUndo() {
