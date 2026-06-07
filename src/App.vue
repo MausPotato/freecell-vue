@@ -110,7 +110,15 @@ import GameTimer from './components/GameTimer.vue'
     }
     
     const source = selectedSource.value
-    // todo
+    if (source.area === 'freeCell') {
+      saveHistory()
+      const moveCard = gameState.freeCells[source.cellIndex]
+      gameState.freeCells[source.cellIndex] = null
+      gameState.freeCells[cellIndex] = moveCard
+      selectedSource.value = null
+      console.log('freeCell 移到 freeCell:', moveCard, cellIndex)
+      return
+    }
     if (source.area !== 'tableau') {
       selectedSource.value = null
       return
@@ -119,6 +127,7 @@ import GameTimer from './components/GameTimer.vue'
     const isLastCard = source.cardIndex === sourceColumn.length - 1
     if (!isLastCard) {
       console.log('只能移動一張!')
+      selectedSource.value = null
       return
     }
     saveHistory()
