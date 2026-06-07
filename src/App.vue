@@ -1,6 +1,6 @@
 <script setup>
   import { ref, reactive } from 'vue'
-  import { isValidTableauStack, canMoveToTableau, canMoveToFoundation } from './utils/gameRules'
+  import { isValidTableauStack, canMoveToTableau, canMoveToFoundation, getMovableStackLimit } from './utils/gameRules'
   import GameBoard from './components/GameBoard.vue'
 
   const selectedSource = ref(null)
@@ -51,11 +51,16 @@
     const sourceColumn = gameState.tableau[source.columnIndex]
     const targetColumn = gameState.tableau[targetColumnIndex]
     const movingCards = sourceColumn.slice(source.cardIndex)
-    if (!isValidTableauStack(movingCards)) return
-    if (!canMoveToTableau(movingCards[0], targetColumn)) return
+    const movableStackLimit = getMovableStackLimit(gameState)
+    if (movingCards.length > movableStackLimit) {
+      console.log('超過可移動張數')
+      return
+    }
+    if (isValidTableauStack(movingCards) && canMoveToTableau(movingCards[0], targetColumn)) {
+      sourceColumn.splice(source.cardIndex)
+      targetColumn.push(...movingCards)
+    }
 
-    sourceColumn.splice(source.cardIndex)
-    targetColumn.push(...movingCards)
   }
 
   function moveFreeCellToTableau(cellIndex, targetColumnIndex) {

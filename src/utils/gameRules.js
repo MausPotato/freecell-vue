@@ -34,9 +34,15 @@ export function canMoveToFoundation(card, foundationPile) {
   if (!card) return false
   const topCard = foundationPile[foundationPile.length - 1]
   if (!topCard) {
+    // todo: suit?
     return card.point === 1
   }
   const isSameSuit = card.suit === topCard.suit
   const isIncreasingByOne = card.point - topCard.point === 1
   return isSameSuit && isIncreasingByOne
+}
+
+export function getMovableStackLimit(gameState) {
+  const emptyFreeCellCount = gameState.freeCells.filter(cell => cell === null).length
+  return emptyFreeCellCount + 1
 }
