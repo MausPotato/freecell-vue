@@ -40,6 +40,12 @@ import GameTimer from './components/GameTimer.vue'
       return
     }
 
+    if (selectedSource.value?.area === 'foundation') {
+      moveFoundationToTableau(selectedSource.value.foundationIndex, columnIndex)
+      selectedSource.value = null
+      return
+    }
+
     if (selectedSource.value?.area === 'tableau') {
       moveTableauStackToTableau(selectedSource.value, columnIndex)
       selectedSource.value = null
@@ -92,6 +98,22 @@ import GameTimer from './components/GameTimer.vue'
     console.log('freecell 移到 tableau', card, targetColumnIndex)
   }
 
+  function moveFoundationToTableau(foundationIndex, targetColumnIndex) {
+    const foundationPile = gameState.foundations[foundationIndex]
+    const targetColumn = gameState.tableau[targetColumnIndex]
+    const movingCard = foundationPile[foundationPile.length - 1]
+
+    if (!movingCard) return
+    if (!canMoveToTableau(movingCard, targetColumn)) {
+      console.log('不能從 foundation 移到 tableau')
+      return
+    }
+    saveHistory()
+    foundationPile.pop()
+    targetColumn.push(movingCard)
+    console.log('foundation 移到 tableau:', movingCard, targetColumnIndex)
+  }
+
   function handleFreeCellClick({ card, cellIndex }) {
     if (!selectedSource.value && card) {
       selectedSource.value = {
@@ -138,9 +160,18 @@ import GameTimer from './components/GameTimer.vue'
   }
 
   function handleFoundationClick({ foundationIndex }) {
-    if (!selectedSource.value) return
-    const source = selectedSource.value
     const foundationPile = gameState.foundations[foundationIndex]
+    if (!selectedSource.value) {
+      if (!foundationPile.length) return
+      selectedSource.value = {
+        area: 'foundation',
+        card: foundationPile[foundationPile.length - 1],
+        foundationIndex
+      }
+      console.log('選到 foundation 牌:', selectedSource.value)
+      return
+    }
+    const source = selectedSource.value
     let movingCard = null
     let removeFromSource = null
     if (source.area === 'tableau') {

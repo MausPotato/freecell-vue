@@ -56,6 +56,12 @@ function isSelectedFreeCell(cellIndex) {
   )
 }
 
+function isSelectedFoundation(foundationIndex) {
+  return (
+    props.selectedSource?.area === 'foundation' && props.selectedSource.foundationIndex === foundationIndex
+  )
+}
+
 </script>
 <template>
   <div id="game-board">
@@ -79,6 +85,7 @@ function isSelectedFreeCell(cellIndex) {
           class="cell-slot"
           v-for="(foundationPile, foundationIndex) in gameState.foundations"
           :key="`foundation-${foundationIndex}`"
+          :class=" { selected: isSelectedFoundation(foundationIndex) }"
           @click="handleFoundationClick(foundationPile, foundationIndex)"
           >
           <Card 
