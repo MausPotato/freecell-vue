@@ -14,15 +14,22 @@ import GameTimer from './components/GameTimer.vue'
   const seconds = ref(0)
   const timerId = ref(null)
   const wasTimerRunningBeforeDialog = ref(false)
+  const formattedTime = computed(() => {
+    const minutes = Math.floor(seconds.value / 60)
+    const remainingSeconds = seconds.value % 60
+
+    return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
+  })
   const isGameWon = computed(() => {
     return gameState.foundations.every(foundation => foundation.length === 13)
   })
+  const showWinDialog = ref(false)
 
   watch(isGameWon, (hasWon) => {
     if (!hasWon) return
     stopTimer()
     selectedSource.value = null
-    console.log('You Win!')
+    showWinDialog.value = true
   })
 
   function handleClick({ card, columnIndex, cardIndex }) {
@@ -258,9 +265,19 @@ import GameTimer from './components/GameTimer.vue'
     <ConfirmDialog
       v-if="showNewGameConfirm"
       message="START A NEW GAME?"
+      :show-cancel="true"
       @cancel="cancelNewGame"
       @confirm="confirmNewGame"
       />
+    
+    <ConfirmDialog
+      v-if="showWinDialog"
+      message="YOU WIN!"
+      :sub-message="`TIME ${formattedTime}`"
+      confirm-text="NEW GAME"
+      :show-cancel="false"
+      @confirm="confirmNewGame"
+     />
   </div>
 </template>
 

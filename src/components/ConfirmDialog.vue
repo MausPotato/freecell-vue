@@ -3,6 +3,22 @@
     message: {
       type: String,
       required: true
+    },
+    subMessage: {
+      type: String,
+      default: ''
+    },
+    confirmText: {
+      type: String,
+      default: 'YES'
+    },
+    cancelText: {
+      type: String,
+      default: 'NO'
+    },
+    showCancel: {
+      type: Boolean,
+      default: true
     }
   })
   const emit = defineEmits(['cancel', 'confirm'])
@@ -11,17 +27,23 @@
   <div class="dialog-backdrop">
     <div class="confirm-dialog">
       <p class="dialog-message">{{ message }}</p>
+      <p 
+        class="dialog-sub-message"
+        v-if="subMessage">
+        {{ subMessage }}
+      </p>
       <div class="dialog-actions">
         <button 
+          v-if="showCancel"
           class="dialog-button dialog-button-no"
           type="button"
           @click="emit('cancel')"
-        >NO</button>
+        >{{ cancelText }}</button>
         <button 
           class="dialog-button dialog-button-yes"
           type="button"
           @click="emit('confirm')"
-        >YES</button>
+        >{{ confirmText }}</button>
       </div>
     </div>
   </div>
@@ -45,13 +67,14 @@
   width: min(70vh, 72vw);
   min-height: min(35vh, 36vw);
   box-sizing: border-box;
-  padding: 7vh 6vh 5vh;
+  padding: 6.3vh 6vh 5vh;
   color: #5E2F2E;
   background-color: #FAFAD7;
   border: 1.5vh solid #FFBC00;
   border-radius: 10vh;
   box-shadow: 0 .6vh 0 rgba(179, 103, 0, .38);
   text-align: center;
+  font-family: HaettenschweilerRegular, Impact, 'Arial Narrow', sans-serif;
 }
 
 .dialog-actions {
@@ -59,7 +82,7 @@
   justify-content: space-around;
   align-items: center;
   width: 100%;
-  margin-top: 4.5vh;
+  margin-top: 4.2vh;
 }
 
 .dialog-message {
@@ -67,8 +90,20 @@
   margin: 0;
   color: #5E2F2E;
   font-size: clamp(2.4rem, 6.8vh, 5.4rem);
+  font-family: HaettenschweilerRegular, Impact, 'Arial Narrow', sans-serif;
   font-weight: 900;
   line-height: .95;
+  text-align: center;
+}
+
+.dialog-sub-message {
+  width: 100%;
+  margin: .55vh 0 0;
+  color: #5E2F2E;
+  font-size: clamp(1.5rem, 3.4vh, 2.7rem);
+  font-family: HaettenschweilerRegular, Impact, 'Arial Narrow', sans-serif;
+  font-weight: 900;
+  line-height: .9;
   text-align: center;
 }
 
@@ -76,7 +111,7 @@
   border: 0;
   padding: 0;
   background: transparent;
-  font: inherit;
+  font-family: HaettenschweilerRegular, Impact, 'Arial Narrow', sans-serif;
   font-size: clamp(2.2rem, 6.3vh, 5rem);
   font-weight: 900;
   line-height: 1;
@@ -105,7 +140,7 @@
   .confirm-dialog {
     width: 43.75vw;
     min-height: 21.9vw;
-    padding: 4.4vw 3.75vw 3.1vw;
+    padding: 3.9vw 3.75vw 3.1vw;
     border-width: 1vw;
     border-radius: 6.25vw;
   }
@@ -114,8 +149,13 @@
     font-size: 4.25vw;
   }
 
+  .dialog-sub-message {
+    margin-top: .35vw;
+    font-size: 2.1vw;
+  }
+
   .dialog-actions {
-    margin-top: 2.8vw;
+    margin-top: 2.6vw;
   }
 
   .dialog-button {
