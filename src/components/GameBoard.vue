@@ -39,9 +39,12 @@ const viewportHeight = ref(window.innerHeight)
 let lastTap = null
 let dragAnimationFrame = null
 let undoAnimationTimer = null
+let autoMoveAnimationTimer = null
 
 defineExpose({
-  animateUndo
+  animateUndo,
+  animateAutoFoundationMove,
+  clearTransientAnimations
 })
 
 function handleCardClick(card, columnIndex, cardIndex) {
@@ -287,10 +290,34 @@ function animateAutoMove(source, to, sourceRect, commit) {
   }
 
   requestAnimationFrame(() => {
-    if (!autoMovePreview.value) return
+    requestAnimationFrame(() => {
+      if (!autoMovePreview.value) return
 
-    autoMovePreview.value.x = targetRect.left
-    autoMovePreview.value.y = targetRect.top
+      autoMovePreview.value.x = targetRect.left
+      autoMovePreview.value.y = targetRect.top
+    })
+  })
+}
+
+function animateAutoFoundationMove(source, to, commit) {
+  const sourceRect = getCardRect(source.card.id)
+
+  if (!sourceRect) {
+    commit()
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    animateAutoMove(source, to, sourceRect, () => {
+      clearAutoMoveAnimationTimer()
+      commit()
+      resolve()
+    })
+
+    autoMoveAnimationTimer = window.setTimeout(() => {
+      if (!autoMovePreview.value) return
+      finishAutoMoveAnimation()
+    }, 520)
   })
 }
 
@@ -414,9 +441,33 @@ function getCurrentCardStep() {
 function finishAutoMoveAnimation() {
   if (!autoMovePreview.value) return
 
+  clearAutoMoveAnimationTimer()
   const commit = autoMovePreview.value.commit
   autoMovePreview.value = null
   commit()
+}
+
+function clearAutoMoveAnimationTimer() {
+  if (!autoMoveAnimationTimer) return
+
+  window.clearTimeout(autoMoveAnimationTimer)
+  autoMoveAnimationTimer = null
+}
+
+function clearTransientAnimations(options = {}) {
+  clearAutoMoveAnimationTimer()
+  autoMovePreview.value = null
+  undoPreview.value = null
+
+  if (!options.keepDrag) {
+    stopDragAnimation()
+    dragPreview.value = null
+  }
+
+  if (undoAnimationTimer) {
+    window.clearTimeout(undoAnimationTimer)
+    undoAnimationTimer = null
+  }
 }
 
 function animateUndo(currentState, previousState, commit) {
@@ -855,9 +906,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportHeight)
-  if (undoAnimationTimer) {
-    window.clearTimeout(undoAnimationTimer)
-  }
+  clearTransientAnimations()
 })
 </script>
 

@@ -1,5 +1,5 @@
 <script setup>
-  import { ref, reactive, computed, watch } from 'vue'
+  import { ref, reactive, computed, watch, nextTick } from 'vue'
   import { isValidTableauStack, canMoveToTableau, canMoveToFoundation, getMovableStackLimit } from './utils/gameRules'
   import { createGameState } from './utils/gameSetup'
   import GameBoard from './components/GameBoard.vue'
@@ -27,6 +27,7 @@
   const hintMove = ref(null)
   const dragSource = ref(null)
   const gameBoardRef = ref(null)
+  let autoFoundationRunId = 0
 
   watch(isGameWon, (hasWon) => {
     if (!hasWon) return
@@ -55,7 +56,7 @@
       return
     }
 
-    const moved = moveSourceToDestination(source, to)
+    const moved = moveSourceWithAutoFoundation(source, to)
     settle?.(moved)
   }
 
@@ -73,7 +74,7 @@
     if (!destination) return
 
     const commit = () => {
-      moveSourceToDestination(source, destination)
+      moveSourceWithAutoFoundation(source, destination)
     }
 
     if (animate) {
@@ -223,11 +224,23 @@
     return false
   }
 
+  function moveSourceWithAutoFoundation(source, to) {
+    autoFoundationRunId++
+    gameBoardRef.value?.clearTransientAnimations?.({ keepDrag: true })
+    const moved = moveSourceToDestination(source, to)
+
+    if (moved && source.area !== 'foundation') {
+      scheduleAutoFoundationMoves()
+    }
+
+    return moved
+  }
+
   function handleClick({ card, columnIndex, cardIndex }) {
     clearHint()
     if (!selectedSource.value && !card) return
     if (selectedSource.value) {
-      moveSourceToDestination(selectedSource.value, { area: 'tableau', columnIndex })
+      moveSourceWithAutoFoundation(selectedSource.value, { area: 'tableau', columnIndex })
       selectedSource.value = null
       return
     }
@@ -333,7 +346,7 @@
       return
     }
     
-    moveSourceToDestination(selectedSource.value, { area: 'freeCell', cellIndex })
+    moveSourceWithAutoFoundation(selectedSource.value, { area: 'freeCell', cellIndex })
     selectedSource.value = null
   }
 
@@ -349,7 +362,7 @@
       }
       return
     }
-    moveSourceToFoundation(selectedSource.value, foundationIndex)
+    moveSourceWithAutoFoundation(selectedSource.value, { area: 'foundation', foundationIndex })
     selectedSource.value = null
   }
 
@@ -390,8 +403,116 @@
     return card.suit - 1
   }
 
+  async function scheduleAutoFoundationMoves() {
+    const runId = ++autoFoundationRunId
+
+    await nextTick()
+
+    while (runId === autoFoundationRunId) {
+      const move = findAutoFoundationMove()
+
+      if (!move) return
+
+      await animateAutoFoundationMove(move, runId)
+      await nextTick()
+    }
+  }
+
+  function canAutoMoveCardToFoundation(card) {
+    const foundationIndex = getFoundationIndex(card)
+    const foundationPile = gameState.foundations[foundationIndex]
+
+    return canMoveToFoundation(card, foundationPile)
+  }
+
+  function findAutoFoundationMove() {
+    for (let columnIndex = 0; columnIndex < gameState.tableau.length; columnIndex++) {
+      const sourceColumn = gameState.tableau[columnIndex]
+      const cardIndex = sourceColumn.length - 1
+      const card = sourceColumn[cardIndex]
+
+      if (!card || !canAutoMoveCardToFoundation(card)) continue
+
+      return {
+        source: {
+          area: 'tableau',
+          card,
+          columnIndex,
+          cardIndex
+        },
+        to: {
+          area: 'foundation',
+          foundationIndex: getFoundationIndex(card)
+        }
+      }
+    }
+
+    for (let cellIndex = 0; cellIndex < gameState.freeCells.length; cellIndex++) {
+      const card = gameState.freeCells[cellIndex]
+
+      if (!card || !canAutoMoveCardToFoundation(card)) continue
+
+      return {
+        source: {
+          area: 'freeCell',
+          card,
+          cellIndex
+        },
+        to: {
+          area: 'foundation',
+          foundationIndex: getFoundationIndex(card)
+        }
+      }
+    }
+
+    return null
+  }
+
+  async function animateAutoFoundationMove(move, runId) {
+    const commit = () => {
+      if (runId !== autoFoundationRunId) return
+      commitAutoFoundationMove(move.source, move.to)
+    }
+
+    if (gameBoardRef.value?.animateAutoFoundationMove) {
+      await gameBoardRef.value.animateAutoFoundationMove(move.source, move.to, commit)
+      return
+    }
+
+    commit()
+  }
+
+  function commitAutoFoundationMove(source, to) {
+    const foundationPile = gameState.foundations[to.foundationIndex]
+
+    if (source.area === 'tableau') {
+      const sourceColumn = gameState.tableau[source.columnIndex]
+      const card = sourceColumn[sourceColumn.length - 1]
+
+      if (!card || card.id !== source.card.id || !canAutoMoveCardToFoundation(card)) return false
+
+      sourceColumn.pop()
+      foundationPile.push(card)
+      return true
+    }
+
+    if (source.area === 'freeCell') {
+      const card = gameState.freeCells[source.cellIndex]
+
+      if (!card || card.id !== source.card.id || !canAutoMoveCardToFoundation(card)) return false
+
+      gameState.freeCells[source.cellIndex] = null
+      foundationPile.push(card)
+      return true
+    }
+
+    return false
+  }
+
   function handleUndo() {
     clearHint()
+    autoFoundationRunId++
+    gameBoardRef.value?.clearTransientAnimations?.()
     const previousState = history.value.pop()
     if (!previousState) return
     selectedSource.value = null
@@ -509,6 +630,8 @@
 
   function confirmNewGame() {
     clearHint()
+    autoFoundationRunId++
+    gameBoardRef.value?.clearTransientAnimations?.()
     const newState = createGameState()
     restoreGameState(newState)
     // gameState.freeCells = newState.freeCells
