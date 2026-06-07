@@ -9,6 +9,9 @@ const props = defineProps({
   selectedSource: {
     type: Object,
     default: null
+  },
+  hintMove: {
+    type: Object
   }
 })
 
@@ -62,6 +65,30 @@ function isSelectedFoundation(foundationIndex) {
   )
 }
 
+function isHintFromFreeCell(cellIndex) {
+  return (
+    props.hintMove?.from.area === 'freeCell' && props.hintMove.from.cellIndex === cellIndex
+  )
+}
+
+function isHintFromTableauCard(columnIndex, cardIndex) {
+  return (
+    props.hintMove?.from.area === 'tableau' && props.hintMove.from.columnIndex === columnIndex && props.hintMove.from.cardIndex === cardIndex
+  )
+}
+
+function isHintToTableauColumn(columnIndex) {
+  return (
+    props.hintMove?.to.area === 'tableau' && props.hintMove.to.columnIndex === columnIndex
+  )
+}
+
+function isHintToTableauCard(columnIndex, cardIndex, column) {
+  return (
+    isHintToTableauColumn(columnIndex) && cardIndex === column.length - 1
+  )
+}
+
 </script>
 <template>
   <div id="game-board">
@@ -71,7 +98,7 @@ function isSelectedFoundation(foundationIndex) {
           class="cell-slot"
           v-for="(cell, cellIndex) in gameState.freeCells"
           :key="`free-cell-${cellIndex}`"
-          :class=" { selected: isSelectedFreeCell(cellIndex) }"
+          :class=" { selected: isSelectedFreeCell(cellIndex), hint: isHintFromFreeCell(cellIndex) }"
           @click="handleFreeCellClick(cell, cellIndex)" 
           >
           <Card
@@ -112,7 +139,10 @@ function isSelectedFoundation(foundationIndex) {
           class="card-wrapper"
           v-for="(card, cardIndex) in column"
           :key="card.id"
-          :class="{ selected: isSelectedTableauCard(columnIndex, cardIndex) }"
+          :class="{
+            selected: isSelectedTableauCard(columnIndex, cardIndex),
+            hint: isHintFromTableauCard(columnIndex, cardIndex) || isHintToTableauCard(columnIndex, cardIndex, column)
+          }"
           @click.stop
         >
           <Card 
@@ -126,7 +156,10 @@ function isSelectedFoundation(foundationIndex) {
 </template>
 <style scoped>
 #game-board {
-  /* width: 100vw; */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100vw;
   min-height: 100vh;
   background-image: url(/img/freecell_bg.png);
   background-size: cover;
@@ -139,6 +172,8 @@ function isSelectedFoundation(foundationIndex) {
 .top-area {
   display: flex;
   justify-content: space-between;
+  width: 90%;
+  margin-bottom: 5vw;
 }
 
 .free-cells, .foundations {
@@ -161,6 +196,8 @@ function isSelectedFoundation(foundationIndex) {
 .tableau {
   display: flex;
   align-items: flex-start;
+  justify-content: space-evenly;
+  width: 80%;
   gap: 1vw;
 }
 
@@ -179,8 +216,35 @@ function isSelectedFoundation(foundationIndex) {
   margin-top: -8vw;
 }
 
+.card-wrapper {
+  position: relative;
+}
+
 .card-wrapper.selected :deep(.card),
 .cell-slot.selected :deep(.card) {
   filter: drop-shadow(3px 3px 5px rgb(253, 228, 5))
+}
+
+.hint {
+  position: relative;
+}
+
+.hint::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--card-width);
+  aspect-ratio: 16 / 21;
+  background-image: url(/img/hint.png);
+  background-position: 50% 70%;
+  background-repeat: no-repeat;
+  background-size: 70%;
+  border: calc(var(--card-width) * .055) solid #FAFAD7;
+  border-radius: calc(var(--card-width) * .11);
+  box-sizing: border-box;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
 }
 </style>

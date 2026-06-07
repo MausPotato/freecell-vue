@@ -5,7 +5,7 @@
   import GameBoard from './components/GameBoard.vue'
   import GameControls from './components/GameControls.vue'
   import ConfirmDialog from './components/ConfirmDialog.vue'
-import GameTimer from './components/GameTimer.vue'
+  import GameTimer from './components/GameTimer.vue'
 
   const gameState = reactive(createGameState())
   const selectedSource = ref(null)
@@ -24,6 +24,7 @@ import GameTimer from './components/GameTimer.vue'
     return gameState.foundations.every(foundation => foundation.length === 13)
   })
   const showWinDialog = ref(false)
+  const hintMove = ref(null)
 
   watch(isGameWon, (hasWon) => {
     if (!hasWon) return
@@ -32,7 +33,12 @@ import GameTimer from './components/GameTimer.vue'
     showWinDialog.value = true
   })
 
+  function clearHint() {
+    hintMove.value = null
+  }
+
   function handleClick({ card, columnIndex, cardIndex }) {
+    clearHint()
     if (!selectedSource.value && !card) return
     if (selectedSource.value?.area === 'freeCell') {
       moveFreeCellToTableau(selectedSource.value.cellIndex, columnIndex)
@@ -58,26 +64,16 @@ import GameTimer from './components/GameTimer.vue'
       columnIndex,
       cardIndex
     }
-    console.log('點到 tableau 牌:', selectedSource.value)
   }
 
   function moveTableauStackToTableau(source, targetColumnIndex) {
-    console.log(source, targetColumnIndex)
     if (!source) return
     if (source.columnIndex === targetColumnIndex) return
     const sourceColumn = gameState.tableau[source.columnIndex]
     const targetColumn = gameState.tableau[targetColumnIndex]
     const movingCards = sourceColumn.slice(source.cardIndex)
     const movableStackLimit = getMovableStackLimit(gameState, source.columnIndex, targetColumnIndex)
-    console.log({
-      movingCards,
-      movableStackLimit,
-      validStack: isValidTableauStack(movingCards),
-      canPlace: canMoveToTableau(movingCards[0], targetColumn),
-      targetTop: targetColumn[targetColumn.length - 1]
-    })
     if (movingCards.length > movableStackLimit) {
-      console.log('超過可移動張數')
       return
     }
     if (isValidTableauStack(movingCards) && canMoveToTableau(movingCards[0], targetColumn)) {
@@ -95,7 +91,6 @@ import GameTimer from './components/GameTimer.vue'
     saveHistory()
     targetColumn.push(card)
     gameState.freeCells[cellIndex] = null
-    console.log('freecell 移到 tableau', card, targetColumnIndex)
   }
 
   function moveFoundationToTableau(foundationIndex, targetColumnIndex) {
@@ -105,28 +100,25 @@ import GameTimer from './components/GameTimer.vue'
 
     if (!movingCard) return
     if (!canMoveToTableau(movingCard, targetColumn)) {
-      console.log('不能從 foundation 移到 tableau')
       return
     }
     saveHistory()
     foundationPile.pop()
     targetColumn.push(movingCard)
-    console.log('foundation 移到 tableau:', movingCard, targetColumnIndex)
   }
 
   function handleFreeCellClick({ card, cellIndex }) {
+    clearHint()
     if (!selectedSource.value && card) {
       selectedSource.value = {
         area: 'freeCell',
         card,
         cellIndex
       }
-      console.log('選到freeCell牌', selectedSource.value)
       return
     }
     if (!selectedSource.value) return
     if (card) {
-      console.log('這裡已經有牌了!')
       selectedSource.value = null
       return
     }
@@ -138,7 +130,6 @@ import GameTimer from './components/GameTimer.vue'
       gameState.freeCells[source.cellIndex] = null
       gameState.freeCells[cellIndex] = moveCard
       selectedSource.value = null
-      console.log('freeCell 移到 freeCell:', moveCard, cellIndex)
       return
     }
     if (source.area !== 'tableau') {
@@ -148,7 +139,6 @@ import GameTimer from './components/GameTimer.vue'
     const sourceColumn = gameState.tableau[source.columnIndex]
     const isLastCard = source.cardIndex === sourceColumn.length - 1
     if (!isLastCard) {
-      console.log('只能移動一張!')
       selectedSource.value = null
       return
     }
@@ -156,10 +146,10 @@ import GameTimer from './components/GameTimer.vue'
     const moveCard = sourceColumn.pop()
     gameState.freeCells[cellIndex] = moveCard
     selectedSource.value = null
-    console.log('移到 free cell:', moveCard, cellIndex)
   }
 
   function handleFoundationClick({ foundationIndex }) {
+    clearHint()
     const foundationPile = gameState.foundations[foundationIndex]
     if (!selectedSource.value) {
       if (!foundationPile.length) return
@@ -168,7 +158,6 @@ import GameTimer from './components/GameTimer.vue'
         card: foundationPile[foundationPile.length - 1],
         foundationIndex
       }
-      console.log('選到 foundation 牌:', selectedSource.value)
       return
     }
     const source = selectedSource.value
@@ -204,7 +193,6 @@ import GameTimer from './components/GameTimer.vue'
     }
 
     if (!canMoveToFoundation(movingCard, foundationPile)) {
-      console.log('不能移到 foundation')
       selectedSource.value = null
       return
     }
@@ -219,6 +207,7 @@ import GameTimer from './components/GameTimer.vue'
   }
 
   function handleUndo() {
+    clearHint()
     const previousState = history.value.pop()
     if (!previousState) return
     restoreGameState(previousState)
@@ -245,16 +234,86 @@ import GameTimer from './components/GameTimer.vue'
   }
 
   function handleHint() {
-    console.log('hint')
+    const hint = findHint()
+    if (!hint) {
+      hintMove.value = null
+      return
+    }
+    hintMove.value = hint
   }
 
+  function findHint() {
+  // 1. freeCell → tableau
+  for (let cellIndex = 0; cellIndex < gameState.freeCells.length; cellIndex++) {
+    const card = gameState.freeCells[cellIndex]
+
+    if (!card) continue
+
+    for (let columnIndex = 0; columnIndex < gameState.tableau.length; columnIndex++) {
+      const targetColumn = gameState.tableau[columnIndex]
+      const canMove = canMoveToTableau(card, targetColumn)
+
+      if (canMove) {
+        return {
+          from: {
+            area: 'freeCell',
+            cellIndex,
+            card
+          },
+          to: {
+            area: 'tableau',
+            columnIndex
+          },
+          message: 'freeCell 可以移到 tableau'
+        }
+      }
+    }
+  }
+
+  // 2. tableau top card → tableau
+  for (let sourceColumnIndex = 0; sourceColumnIndex < gameState.tableau.length; sourceColumnIndex++) {
+    const sourceColumn = gameState.tableau[sourceColumnIndex]
+    const sourceCardIndex = sourceColumn.length - 1
+    const card = sourceColumn[sourceCardIndex]
+
+    if (!card) continue
+
+    for (let targetColumnIndex = 0; targetColumnIndex < gameState.tableau.length; targetColumnIndex++) {
+      if (sourceColumnIndex === targetColumnIndex) continue
+
+      const targetColumn = gameState.tableau[targetColumnIndex]
+      const canMove = canMoveToTableau(card, targetColumn)
+
+      if (canMove) {
+        return {
+          from: {
+            area: 'tableau',
+            columnIndex: sourceColumnIndex,
+            cardIndex: sourceCardIndex,
+            card
+          },
+          to: {
+            area: 'tableau',
+            columnIndex: targetColumnIndex
+          },
+          message: 'tableau 最上面的牌可以移到 tableau'
+        }
+      }
+    }
+  }
+
+  return null
+}
+
   function handleNewGame() {
+    clearHint()
     wasTimerRunningBeforeDialog.value = timerId.value !== null
     stopTimer()
     showNewGameConfirm.value = true
   }
 
   function confirmNewGame() {
+    clearHint()
     const newState = createGameState()
     restoreGameState(newState)
     // gameState.freeCells = newState.freeCells
@@ -298,6 +357,7 @@ import GameTimer from './components/GameTimer.vue'
     <GameBoard
       :game-state="gameState"
       :selected-source="selectedSource"
+      :hint-move="hintMove"
       @tableau-click="handleClick"
       @free-cell-click="handleFreeCellClick"
       @foundation-click="handleFoundationClick"

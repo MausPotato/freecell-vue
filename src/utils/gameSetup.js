@@ -37,9 +37,6 @@ export function createGameState() {
   const deck = createDeck()
   const shuffledDeck = shuffleDeck(deck)
 
-  console.log(shuffledDeck.map(card => card.id))
-
-
   return {
     freeCells: [null, null, null, null],
     foundations: [[], [], [], []],
