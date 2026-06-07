@@ -5,11 +5,15 @@
   import GameBoard from './components/GameBoard.vue'
   import GameControls from './components/GameControls.vue'
   import ConfirmDialog from './components/ConfirmDialog.vue'
+import GameTimer from './components/GameTimer.vue'
 
   const gameState = reactive(createGameState())
   const selectedSource = ref(null)
   const history = ref([])
   const showNewGameConfirm = ref(false)
+  const seconds = ref(0)
+  const timerId = ref(null)
+  const wasTimerRunningBeforeDialog = ref(false)
 
   function handleClick({ card, columnIndex, cardIndex }) {
     if (!selectedSource.value && !card) return
@@ -58,7 +62,6 @@
       sourceColumn.splice(source.cardIndex)
       targetColumn.push(...movingCards)
     }
-
   }
 
   function moveFreeCellToTableau(cellIndex, targetColumnIndex) {
@@ -155,6 +158,7 @@
   }
 
   function saveHistory() {
+    startTimer()
     history.value.push(cloneGameState(gameState))
   }
 
@@ -177,6 +181,8 @@
   }
 
   function handleNewGame() {
+    wasTimerRunningBeforeDialog.value = timerId.value !== null
+    stopTimer()
     showNewGameConfirm.value = true
   }
 
@@ -188,13 +194,35 @@
     // gameState.tableau = newState.tableau
     selectedSource.value = null
     history.value = []
+    resetTimer()
     showNewGameConfirm.value = false
+    wasTimerRunningBeforeDialog.value = false
   }
 
   function cancelNewGame() {
     showNewGameConfirm.value = false
+    if (wasTimerRunningBeforeDialog.value) {
+      startTimer()
+    }
+    wasTimerRunningBeforeDialog.value = false
   }
 
+  function startTimer() {
+    if (timerId.value) return
+    timerId.value = setInterval(() => {
+      seconds.value++
+    }, 1000)
+  }
+
+  function stopTimer() {
+    clearInterval(timerId.value)
+    timerId.value = null
+  }
+
+  function resetTimer() {
+    stopTimer()
+    seconds.value = 0
+  }
 </script>
 
 <template>
@@ -207,11 +235,16 @@
       @foundation-click="handleFoundationClick"
       />
 
+    <GameTimer
+      :seconds="seconds"
+      />
+
     <GameControls
       @undo="handleUndo"
       @hint="handleHint"
       @new-game="handleNewGame"
       />
+
     <ConfirmDialog
       v-if="showNewGameConfirm"
       message="START A NEW GAME?"

@@ -1,5 +1,13 @@
 @import './base.css';
 
+@font-face {
+  font-family: HaettenschweilerRegular;
+  src: url('/fonts/Haettenschweiler-Regular.ttf') format('truetype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
+
 html,
 body,
 #app {
