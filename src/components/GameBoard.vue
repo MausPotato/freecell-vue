@@ -5,6 +5,10 @@ const props = defineProps({
   gameState: {
     type: Object,
     required: true
+  },
+  selectedSource: {
+    type: Object,
+    default: null
   }
 })
 
@@ -15,6 +19,14 @@ function handleCardClick(card, columnIndex, cardIndex) {
     card,
     columnIndex,
     cardIndex
+  })
+}
+
+function handleColumnClick(columnIndex) {
+  emit('tableau-click', {
+    card: null,
+    columnIndex,
+    cardIndex: null
   })
 }
 
@@ -30,12 +42,17 @@ function handleFoundationClick(foundation, foundationIndex) {
   })
 }
 
-function handleColumnClick(columnIndex) {
-  emit('tableau-click', {
-    card: null,
-    columnIndex,
-    cardIndex: null
-  })
+function isSelectedTableauCard(columnIndex, cardIndex) {
+  if (props.selectedSource?.area !== 'tableau') return false
+  if (props.selectedSource.columnIndex !== columnIndex) return false
+  
+  return cardIndex >=props.selectedSource.cardIndex
+}
+
+function isSelectedFreeCell(cellIndex) {
+  return (
+    props.selectedSource?.area === 'freeCell' && props.selectedSource.cellIndex === cellIndex
+  )
 }
 
 </script>
@@ -47,6 +64,7 @@ function handleColumnClick(columnIndex) {
           class="cell-slot"
           v-for="(cell, cellIndex) in gameState.freeCells"
           :key="`free-cell-${cellIndex}`"
+          :class=" { selected: isSelectedFreeCell(cellIndex) }"
           @click="handleFreeCellClick(cell, cellIndex)" 
           >
           <Card
@@ -59,7 +77,7 @@ function handleColumnClick(columnIndex) {
         <div 
           class="cell-slot"
           v-for="(foundationPile, foundationIndex) in gameState.foundations"
-          :key="`foundation-${foundationIndex}`",
+          :key="`foundation-${foundationIndex}`"
           @click="handleFoundationClick(foundationPile, foundationIndex)"
           >
           <Card 
@@ -80,6 +98,7 @@ function handleColumnClick(columnIndex) {
           class="card-wrapper"
           v-for="(card, cardIndex) in column"
           :key="card.id"
+          :class="{ selected: isSelectedTableauCard(columnIndex, cardIndex) }"
           @click.stop
         >
           <Card 
@@ -141,5 +160,10 @@ function handleColumnClick(columnIndex) {
 
 .card-wrapper:not(:first-child) {
   margin-top: -8vw;
+}
+
+.card-wrapper.selected :deep(.card),
+.cell-slot.selected :deep(.card) {
+  filter: drop-shadow(3px 3px 5px rgb(253, 228, 5))
 }
 </style>

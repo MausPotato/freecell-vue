@@ -1,25 +1,12 @@
 <script setup>
   import { ref, reactive } from 'vue'
   import { isValidTableauStack, canMoveToTableau, canMoveToFoundation, getMovableStackLimit } from './utils/gameRules'
+  import { createGameState } from './utils/gameSetup'
   import GameBoard from './components/GameBoard.vue'
+  import GameControls from './components/GameControls.vue'
 
+  const gameState = reactive(createGameState())
   const selectedSource = ref(null)
-  const cards = []
-  for (let i = 0; i < 52; i++) {
-    cards.push({
-      id: i + 1,
-      suit: Math.ceil((i + 1) / 13),
-      point: (i % 13) + 1,
-    })
-  }
-  const gameState = reactive({
-    freeCells: [null, null, null, null],
-    foundations: [[], [], [], []],
-    tableau: [[], [], [], [], [], [], [], []]
-  })
-  cards.forEach((card, index) => {
-    gameState.tableau[index % 8].push(card)
-  })
 
   function handleClick({ card, columnIndex, cardIndex }) {
     if (!selectedSource.value && !card) return
@@ -115,7 +102,6 @@
     console.log('移到 free cell:', moveCard, cellIndex)
   }
 
-
   function handleFoundationClick({ foundationIndex }) {
     if (!selectedSource.value) return
     const source = selectedSource.value
@@ -154,14 +140,38 @@
     selectedSource.value = null
   }
 
+  function handleNewGame() {
+    console.log('new game clicked')
+    const newState = createGameState()
+    gameState.freeCells = newState.freeCells
+    gameState.foundations = newState.foundations
+    gameState.tableau = newState.tableau
+    selectedSource.value = null
+  }
+
+  function handleUndo() {
+    console.log('undo')
+  }
+
+  function handleHint() {
+    console.log('hint')
+  }
+
 </script>
 
 <template>
   <GameBoard
     :game-state="gameState"
+    :selected-source="selectedSource"
     @tableau-click="handleClick"
     @free-cell-click="handleFreeCellClick"
     @foundation-click="handleFoundationClick"
+     />
+
+  <GameControls
+    @undo="handleUndo"
+    @hint="handleHint"
+    @new-game="handleNewGame"
      />
 </template>
 

@@ -10,6 +10,7 @@ export function isValidTableauStack(cards) {
     const previousCard = arr[index - 1]
     return getCardColor(previousCard) !== getCardColor(card)
   })
+
   return isDecreasingByOne && isDifferentColor
 }
 
@@ -18,6 +19,7 @@ export function getCardColor(card) {
   const redSuits = [2, 3]
   if (blackSuits.includes(card.suit)) return 'black'
   if (redSuits.includes(card.suit)) return 'red'
+
   return null
 }
 
@@ -28,6 +30,7 @@ export function canMoveToTableau(card, targetColumn) {
   if (!targetCard) return true
   const isDecreasingByOne = targetCard.point - card.point === 1
   const isDifferentColor = getCardColor(card) !== getCardColor(targetCard)
+
   return isDecreasingByOne && isDifferentColor
 }
 
@@ -40,6 +43,7 @@ export function canMoveToFoundation(card, foundationPile) {
   }
   const isSameSuit = card.suit === topCard.suit
   const isIncreasingByOne = card.point - topCard.point === 1
+
   return isSameSuit && isIncreasingByOne
 }
 
@@ -48,5 +52,6 @@ export function getMovableStackLimit(gameState, sourceColumnIndex, targetColumnI
   const emptyTableauCount = gameState.tableau.filter((column, index) => {
     return index !== sourceColumnIndex && index !== targetColumnIndex && column.length === 0
   }).length
+
   return (emptyFreeCellCount + 1) * 2 ** emptyTableauCount
 }
