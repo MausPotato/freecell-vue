@@ -14,6 +14,9 @@
   <div 
     class="card" 
     :style="{ backgroundImage: `url(/card/card_${card.id}.png)`}"
+    draggable="false"
+    @dragstart.prevent
+    @contextmenu.prevent
     @click="handleClick"
   ></div>
 </template>
@@ -24,6 +27,8 @@
     background-size: contain;
     background-position: center;
     background-repeat: no-repeat;
+    user-select: none;
+    -webkit-user-drag: none;
     /* position: absolute; */
     top: 100%;
     left: 50%;

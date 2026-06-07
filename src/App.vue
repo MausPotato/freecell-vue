@@ -25,6 +25,7 @@
   })
   const showWinDialog = ref(false)
   const hintMove = ref(null)
+  const dragSource = ref(null)
 
   watch(isGameWon, (hasWon) => {
     if (!hasWon) return
@@ -37,23 +38,69 @@
     hintMove.value = null
   }
 
+  function handleDragStart(source) {
+    clearHint()
+    selectedSource.value = null
+    dragSource.value = source
+  }
+
+  function handleDrop({ to, settle }) {
+    clearHint()
+    const source = dragSource.value
+    dragSource.value = null
+    selectedSource.value = null
+    if (!source) {
+      settle?.(false)
+      return
+    }
+
+    const moved = moveSourceToDestination(source, to)
+    settle?.(moved)
+  }
+
+  function handleDragEnd() {
+    dragSource.value = null
+  }
+
+  function moveSourceToDestination(source, to) {
+    if (to.area === 'tableau') {
+      if (source.area === 'tableau') {
+        return moveTableauStackToTableau(source, to.columnIndex)
+      }
+      if (source.area === 'freeCell') {
+        return moveFreeCellToTableau(source.cellIndex, to.columnIndex)
+      }
+      if (source.area === 'foundation') {
+        return moveFoundationToTableau(source.foundationIndex, to.columnIndex)
+      }
+      return false
+    }
+
+    if (to.area === 'freeCell') {
+      if (source.area === 'tableau') {
+        return moveTableauTopCardToFreeCell(source, to.cellIndex)
+      }
+      if (source.area === 'freeCell') {
+        return moveFreeCellToFreeCell(source.cellIndex, to.cellIndex)
+      }
+      if (source.area === 'foundation') {
+        return moveFoundationToFreeCell(source.foundationIndex, to.cellIndex)
+      }
+      return false
+    }
+
+    if (to.area === 'foundation') {
+      return moveSourceToFoundation(source, to.foundationIndex)
+    }
+
+    return false
+  }
+
   function handleClick({ card, columnIndex, cardIndex }) {
     clearHint()
     if (!selectedSource.value && !card) return
-    if (selectedSource.value?.area === 'freeCell') {
-      moveFreeCellToTableau(selectedSource.value.cellIndex, columnIndex)
-      selectedSource.value = null
-      return
-    }
-
-    if (selectedSource.value?.area === 'foundation') {
-      moveFoundationToTableau(selectedSource.value.foundationIndex, columnIndex)
-      selectedSource.value = null
-      return
-    }
-
-    if (selectedSource.value?.area === 'tableau') {
-      moveTableauStackToTableau(selectedSource.value, columnIndex)
+    if (selectedSource.value) {
+      moveSourceToDestination(selectedSource.value, { area: 'tableau', columnIndex })
       selectedSource.value = null
       return
     }
@@ -67,30 +114,33 @@
   }
 
   function moveTableauStackToTableau(source, targetColumnIndex) {
-    if (!source) return
-    if (source.columnIndex === targetColumnIndex) return
+    if (!source) return false
+    if (source.columnIndex === targetColumnIndex) return false
     const sourceColumn = gameState.tableau[source.columnIndex]
     const targetColumn = gameState.tableau[targetColumnIndex]
     const movingCards = sourceColumn.slice(source.cardIndex)
     const movableStackLimit = getMovableStackLimit(gameState, source.columnIndex, targetColumnIndex)
     if (movingCards.length > movableStackLimit) {
-      return
+      return false
     }
     if (isValidTableauStack(movingCards) && canMoveToTableau(movingCards[0], targetColumn)) {
       saveHistory()
       sourceColumn.splice(source.cardIndex)
       targetColumn.push(...movingCards)
+      return true
     }
+    return false
   }
 
   function moveFreeCellToTableau(cellIndex, targetColumnIndex) {
     const card = gameState.freeCells[cellIndex]
     const targetColumn = gameState.tableau[targetColumnIndex]
-    if (!card) return
-    if (!canMoveToTableau(card, targetColumn)) return
+    if (!card) return false
+    if (!canMoveToTableau(card, targetColumn)) return false
     saveHistory()
     targetColumn.push(card)
     gameState.freeCells[cellIndex] = null
+    return true
   }
 
   function moveFoundationToTableau(foundationIndex, targetColumnIndex) {
@@ -98,13 +148,46 @@
     const targetColumn = gameState.tableau[targetColumnIndex]
     const movingCard = foundationPile[foundationPile.length - 1]
 
-    if (!movingCard) return
+    if (!movingCard) return false
     if (!canMoveToTableau(movingCard, targetColumn)) {
-      return
+      return false
     }
     saveHistory()
     foundationPile.pop()
     targetColumn.push(movingCard)
+    return true
+  }
+
+  function moveTableauTopCardToFreeCell(source, cellIndex) {
+    if (gameState.freeCells[cellIndex]) return false
+    const sourceColumn = gameState.tableau[source.columnIndex]
+    const isLastCard = source.cardIndex === sourceColumn.length - 1
+    if (!isLastCard) return false
+
+    saveHistory()
+    gameState.freeCells[cellIndex] = sourceColumn.pop()
+    return true
+  }
+
+  function moveFreeCellToFreeCell(sourceCellIndex, targetCellIndex) {
+    if (sourceCellIndex === targetCellIndex) return false
+    if (gameState.freeCells[targetCellIndex]) return false
+
+    saveHistory()
+    gameState.freeCells[targetCellIndex] = gameState.freeCells[sourceCellIndex]
+    gameState.freeCells[sourceCellIndex] = null
+    return true
+  }
+
+  function moveFoundationToFreeCell(foundationIndex, cellIndex) {
+    if (gameState.freeCells[cellIndex]) return false
+    const foundationPile = gameState.foundations[foundationIndex]
+    const movingCard = foundationPile[foundationPile.length - 1]
+    if (!movingCard) return false
+
+    saveHistory()
+    gameState.freeCells[cellIndex] = foundationPile.pop()
+    return true
   }
 
   function handleFreeCellClick({ card, cellIndex }) {
@@ -123,28 +206,7 @@
       return
     }
     
-    const source = selectedSource.value
-    if (source.area === 'freeCell') {
-      saveHistory()
-      const moveCard = gameState.freeCells[source.cellIndex]
-      gameState.freeCells[source.cellIndex] = null
-      gameState.freeCells[cellIndex] = moveCard
-      selectedSource.value = null
-      return
-    }
-    if (source.area !== 'tableau') {
-      selectedSource.value = null
-      return
-    }
-    const sourceColumn = gameState.tableau[source.columnIndex]
-    const isLastCard = source.cardIndex === sourceColumn.length - 1
-    if (!isLastCard) {
-      selectedSource.value = null
-      return
-    }
-    saveHistory()
-    const moveCard = sourceColumn.pop()
-    gameState.freeCells[cellIndex] = moveCard
+    moveSourceToDestination(selectedSource.value, { area: 'freeCell', cellIndex })
     selectedSource.value = null
   }
 
@@ -160,46 +222,41 @@
       }
       return
     }
-    const source = selectedSource.value
+    moveSourceToFoundation(selectedSource.value, foundationIndex)
+    selectedSource.value = null
+  }
+
+  function moveSourceToFoundation(source, foundationIndex) {
+    const foundationPile = gameState.foundations[foundationIndex]
     let movingCard = null
     let removeFromSource = null
+
     if (source.area === 'tableau') {
       const sourceColumn = gameState.tableau[source.columnIndex]
       const isLastCard = source.cardIndex === sourceColumn.length - 1
-      if (!isLastCard) {
-        selectedSource.value = null
-        return
-      }
+      if (!isLastCard) return false
+
       movingCard = sourceColumn[source.cardIndex]
       removeFromSource = () => {
         sourceColumn.pop()
       }
     }
+
     if (source.area === 'freeCell') {
       movingCard = gameState.freeCells[source.cellIndex]
       removeFromSource = () => {
         gameState.freeCells[source.cellIndex] = null
       }
     }
-    if (!movingCard || !removeFromSource) {
-        selectedSource.value = null
-        return
-    }
 
-    const correctFoundationIndex = getFoundationIndex(movingCard)
-    if (foundationIndex !== correctFoundationIndex) {
-      selectedSource.value = null
-      return
-    }
+    if (!movingCard || !removeFromSource) return false
+    if (foundationIndex !== getFoundationIndex(movingCard)) return false
+    if (!canMoveToFoundation(movingCard, foundationPile)) return false
 
-    if (!canMoveToFoundation(movingCard, foundationPile)) {
-      selectedSource.value = null
-      return
-    }
     saveHistory()
     removeFromSource()
     foundationPile.push(movingCard)
-    selectedSource.value = null
+    return true
   }
 
   function getFoundationIndex(card) {
@@ -361,6 +418,9 @@
       @tableau-click="handleClick"
       @free-cell-click="handleFreeCellClick"
       @foundation-click="handleFoundationClick"
+      @drag-start="handleDragStart"
+      @card-drop="handleDrop"
+      @drag-end="handleDragEnd"
       />
 
     <GameTimer
