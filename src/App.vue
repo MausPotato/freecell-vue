@@ -741,7 +741,7 @@
 
 .game-logo {
   position: absolute;
-  left: 13.5vw;
+  left: calc(5vw - 4.15vh);
   bottom: 3.5vh;
   width: 8.3vh;
   height: 8.3vh;
@@ -752,6 +752,7 @@
 
 @media (max-aspect-ratio: 1000 / 625) {
   .game-logo {
+    left: calc(5vw - 2.6vw);
     width: 5.2vw;
     height: 5.2vw;
   }
