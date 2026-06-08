@@ -1,44 +1,44 @@
-# freecell-vue
+# FreeCell Vue
 
-This template should help get you started developing with Vue 3 in Vite.
+A FreeCell solitaire game rebuilt with Vue 3 and Vite.
 
-## Recommended IDE Setup
+This project is a Vue version of the original `FreeCell` implementation in this repository, with updated component structure, card movement animations, drag interactions, and deployment support.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## Features
 
-## Recommended Browser Setup
+- FreeCell card movement rules
+- Drag card movement
+- Multi-card tableau moves
+- Double-click auto move
+- Automatic moves to foundations
+- Undo
+- Hint
+- Game timer
+- New game confirmation dialog
+- Win dialog
+- Responsive tableau spacing
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+## Controls
 
-## Customize configuration
+- Drag a card or a valid tableau stack to move it.
+- Double-click a card to auto move it to a valid destination.
+- Use the right-side buttons for undo, hint, and new game.
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+## Tech Stack
 
-## Project Setup
+- Vue 3
+- Vite
+- JavaScript
+- CSS
 
-```sh
-npm install
-```
+## Project Structure
 
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
+```txt
+src/
+  components/   Vue components for the board, cards, timer, controls, and dialogs
+  composables/  Board interaction, layout, and highlight logic
+  utils/        Game setup and FreeCell rule helpers
+public/
+  card/         Card and slot images
+  img/          Board background, hint, logo, and control icons
 ```
