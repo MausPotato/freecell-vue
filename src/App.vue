@@ -669,6 +669,10 @@
     stopTimer()
     seconds.value = 0
   }
+
+  function assetUrl(path) {
+    return `${import.meta.env.BASE_URL}${path}`
+  }
 </script>
 
 <template>
@@ -696,6 +700,12 @@
       @hint="handleHint"
       @new-game="handleNewGame"
       />
+
+    <img
+      class="game-logo"
+      :src="assetUrl('img/icon_logo.png')"
+      alt="logo"
+    >
 
     <ConfirmDialog
       v-if="showNewGameConfirm"
@@ -727,5 +737,23 @@
   position: absolute;
   right: 0;
   bottom: 0;
+}
+
+.game-logo {
+  position: absolute;
+  left: 13.5vw;
+  bottom: 3.5vh;
+  width: 8.3vh;
+  height: 8.3vh;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (max-aspect-ratio: 1000 / 625) {
+  .game-logo {
+    width: 5.2vw;
+    height: 5.2vw;
+  }
 }
 </style>

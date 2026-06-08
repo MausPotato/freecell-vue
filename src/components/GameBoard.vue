@@ -721,8 +721,12 @@ function isAutoMovingFoundationCard(cardId) {
 
 function foundationSlotStyle(foundationIndex) {
   return {
-    backgroundImage: `url(/card/${foundationSlots[foundationIndex]})`
+    backgroundImage: `url(${assetUrl(`card/${foundationSlots[foundationIndex]}`)})`
   }
+}
+
+function assetUrl(path) {
+  return `${import.meta.env.BASE_URL}${path}`
 }
 
 function dragPreviewCardStyle(index) {
@@ -867,7 +871,12 @@ function isHintToTableauCard(columnIndex, cardIndex, column) {
 }
 
 const boardStyle = computed(() => {
-  return {}
+  return {
+    backgroundImage: `url(${assetUrl('img/freecell_bg.png')})`,
+    '--empty-cell-image': `url(${assetUrl('card/p.png')})`,
+    '--empty-column-image': `url(${assetUrl('card/c0.png')})`,
+    '--hint-image': `url(${assetUrl('img/hint.png')})`
+  }
 })
 
 function getColumnStyle(column) {
@@ -1072,7 +1081,6 @@ onBeforeUnmount(() => {
   height: 100vh;
   box-sizing: border-box;
   overflow: hidden;
-  background-image: url(/img/freecell_bg.png);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -1098,7 +1106,7 @@ onBeforeUnmount(() => {
 .cell-slot {
   width: var(--card-width);
   aspect-ratio: 16 / 21;
-  background-image: url(/card/p.png);
+  background-image: var(--empty-cell-image);
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
@@ -1120,7 +1128,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   width: var(--card-width);
   min-height: var(--card-height, 10.5vw);
-  background-image: url(/card/c0.png);
+  background-image: var(--empty-column-image);
   background-size: contain;
   background-position: top center;
   background-repeat: no-repeat;
@@ -1231,7 +1239,7 @@ onBeforeUnmount(() => {
   left: 50%;
   width: var(--card-width);
   aspect-ratio: 16 / 21;
-  background-image: url(/img/hint.png);
+  background-image: var(--hint-image);
   background-position: 50% 70%;
   background-repeat: no-repeat;
   background-size: 70%;

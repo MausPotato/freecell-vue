@@ -1,23 +1,30 @@
 <script setup>
 const emit = defineEmits(['undo', 'hint', 'new-game'])
+
+function assetUrl(path) {
+  return `${import.meta.env.BASE_URL}${path}`
+}
 </script>
 <template>
   <div class="game-controls">
     <button 
       class="undo"
       type="button"
+      :style="{ backgroundImage: `url(${assetUrl('img/icon_undo.png')})` }"
       @click="emit('undo')"
     ></button>
 
     <button 
       class="hint"
       type="button"
+      :style="{ backgroundImage: `url(${assetUrl('img/icon_hint.png')})` }"
       @click="emit('hint')"
     ></button>
 
     <button
       class="new-game"
       type="button"
+      :style="{ backgroundImage: `url(${assetUrl('img/icon_newgame.png')})` }"
       @click="emit('new-game')" 
     ></button>
   </div>
@@ -50,15 +57,4 @@ button:active {
   box-shadow: inset .5vh .5vh #FFAA19;
 }
 
-.undo {
-  background-image: url(/img/icon_undo.png);
-}
-
-.hint {
-  background-image: url(/img/icon_hint.png);
-}
-
-.new-game {
-  background-image: url(/img/icon_newgame.png);
-}
 </style>

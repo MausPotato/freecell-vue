@@ -9,11 +9,15 @@
   function handleClick() {
     emit('card-click', props.card)
   }
+
+  function cardImageUrl(card) {
+    return `${import.meta.env.BASE_URL}card/card_${card.id}.png`
+  }
 </script>
 <template>
   <div 
     class="card" 
-    :style="{ backgroundImage: `url(/card/card_${card.id}.png)`}"
+    :style="{ backgroundImage: `url(${cardImageUrl(card)})` }"
     draggable="false"
     @dragstart.prevent
     @contextmenu.prevent
