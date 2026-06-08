@@ -275,6 +275,7 @@ onBeforeUnmount(() => {
     <div
       v-if="autoMovePreview"
       class="auto-move-preview"
+      :class="{ moving: autoMovePreview.isMoving }"
       @transitionend="finishAutoMoveAnimation"
     >
       <div
@@ -442,8 +443,15 @@ onBeforeUnmount(() => {
     rotate(var(--drag-card-rotate, 0deg));
   transform-origin: 50% 12%;
   backface-visibility: hidden;
-  transition: transform .24s ease-in-out;
   will-change: transform;
+}
+
+.auto-move-preview-card {
+  transition: none;
+}
+
+.auto-move-preview.moving .auto-move-preview-card {
+  transition: transform .34s ease-in-out;
 }
 
 .undo-preview-card {

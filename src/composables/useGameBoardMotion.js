@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { isValidTableauStack } from '../utils/gameRules'
 
 export function useGameBoardMotion({ props, emit, getColumnCardStep }) {
@@ -202,10 +202,17 @@ export function useGameBoardMotion({ props, emit, getColumnCardStep }) {
       cardStep,
       x: sourceRect.left,
       y: sourceRect.top,
+      isMoving: false,
       commit
     }
 
-    requestAnimationFrame(() => {
+    requestAnimationFrame(async () => {
+      if (!autoMovePreview.value) return
+
+      document.querySelector('.auto-move-preview-card')?.getBoundingClientRect()
+      autoMovePreview.value.isMoving = true
+      await nextTick()
+
       requestAnimationFrame(() => {
         if (!autoMovePreview.value) return
 
@@ -233,9 +240,9 @@ export function useGameBoardMotion({ props, emit, getColumnCardStep }) {
       autoMoveAnimationTimer = window.setTimeout(() => {
         if (!autoMovePreview.value) return
         finishAutoMoveAnimation()
-      }, 520)
-    })
-  }
+    }, 760)
+  })
+}
 
   function getDropTargetRect(to, movingCardCount = 1) {
     let selector = ''
